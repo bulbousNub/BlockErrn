@@ -1,6 +1,6 @@
-# Flex Earnings Tracker
+# FlexErrn
 
-Flex Earnings Tracker (FlexErrn) is a SwiftUI + SwiftData iOS app built to help gig-workers track earnings, expenses, and mileage per delivery or ride-sharing block. It combines the calculator, log, trend insights, and settings into one tab-based experience and uses location/GPS tracking plus local notifications to keep mileage estimates accurate.
+FlexErrn is a SwiftUI + SwiftData iOS app built to help gig-workers track earnings, expenses, and mileage per delivery or ride-sharing block. It combines the calculator, log, trend insights, and settings into one tab-based experience and uses location/GPS tracking plus local notifications to keep mileage estimates accurate.
 
 ## Key features
 - Structured block entry with date/time scheduling, gross pay, optional tips, mileage input, and expense tracking.  
