@@ -16,7 +16,7 @@ final class NotificationManager {
         }
     }
 
-    func scheduleBlockReminders(for block: Block) {
+    func scheduleBlockReminders(for block: Block, includePreReminder: Bool = true) {
         let identifiers = pendingIdentifiers(for: block)
         center.removePendingNotificationRequests(withIdentifiers: [identifiers.preAlert, identifiers.finalAlert])
 
@@ -24,7 +24,8 @@ final class NotificationManager {
         let endDate = block.scheduledEndDate
         guard endDate > now else { return }
 
-        if let preEndDate = Calendar.current.date(byAdding: .minute, value: -15, to: endDate),
+        if includePreReminder,
+           let preEndDate = Calendar.current.date(byAdding: .minute, value: -15, to: endDate),
            preEndDate > now {
             schedule(
                 id: identifiers.preAlert,

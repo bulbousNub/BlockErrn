@@ -27,6 +27,23 @@ public enum ExpenseCategory: String, Codable, CaseIterable, Identifiable, Hashab
     }
 }
 
+public struct ExpenseCategoryDescriptor: Codable, Identifiable, Hashable {
+    public let id: String
+    public var name: String
+
+    public static var defaultList: [ExpenseCategoryDescriptor] {
+        ExpenseCategory.allCases.map { descriptor(for: $0) }
+    }
+
+    public static func descriptor(for category: ExpenseCategory) -> ExpenseCategoryDescriptor {
+        ExpenseCategoryDescriptor(id: category.rawValue, name: category.displayName)
+    }
+
+    public static func custom(name: String) -> ExpenseCategoryDescriptor {
+        ExpenseCategoryDescriptor(id: "custom.\(UUID().uuidString)", name: name)
+    }
+}
+
 public enum AuditAction: String, Codable, CaseIterable {
     case created
     case updated
@@ -68,6 +85,14 @@ public final class Expense {
     public init(id: UUID = UUID(), category: ExpenseCategory, amount: Decimal, note: String? = nil, createdAt: Date = Date()) {
         self.id = id
         self.categoryRaw = category.rawValue
+        self.amount = amount
+        self.note = note
+        self.createdAt = createdAt
+    }
+
+    public init(id: UUID = UUID(), categoryRaw: String, amount: Decimal, note: String? = nil, createdAt: Date = Date()) {
+        self.id = id
+        self.categoryRaw = categoryRaw
         self.amount = amount
         self.note = note
         self.createdAt = createdAt
@@ -230,7 +255,27 @@ public final class AppSettings {
     public var currencyCode: String
     public var roundingScale: Int
     public var preferredAppearanceRaw: String?
+    public var includePreReminder: Bool = true
+    public var hasDismissedPlanCard: Bool = false
     public var hasCompletedOnboarding: Bool
+
+    private static let defaultExpenseCategoryDescriptors = ExpenseCategoryDescriptor.defaultList
+    private static let defaultExpenseCategoryJSON: String = {
+        let encoder = JSONEncoder()
+        let data = try? encoder.encode(defaultExpenseCategoryDescriptors)
+        return String(data: data ?? Data(), encoding: .utf8) ?? "[]"
+    }()
+
+    private var expenseCategoriesJSON: String = defaultExpenseCategoryJSON
+
+    public var expenseCategoryDescriptors: [ExpenseCategoryDescriptor] {
+        get {
+            Self.decodeExpenseCategoryDescriptors(from: expenseCategoriesJSON)
+        }
+        set {
+            expenseCategoriesJSON = Self.encodeExpenseCategoryDescriptors(newValue)
+        }
+    }
 
     public init(
         id: UUID = UUID(),
@@ -238,6 +283,9 @@ public final class AppSettings {
         currencyCode: String = "USD",
         roundingScale: Int = 2,
         preferredAppearance: AppearancePreference = .system,
+        includePreReminder: Bool = true,
+        hasDismissedPlanCard: Bool = false,
+        expenseCategories: [ExpenseCategoryDescriptor]? = nil,
         hasCompletedOnboarding: Bool = false
     ) {
         self.id = id
@@ -245,11 +293,34 @@ public final class AppSettings {
         self.currencyCode = currencyCode
         self.roundingScale = roundingScale
         self.preferredAppearanceRaw = preferredAppearance.rawValue
+        self.includePreReminder = includePreReminder
+        self.hasDismissedPlanCard = hasDismissedPlanCard
+        let categoriesToUse = expenseCategories ?? Self.defaultExpenseCategoryDescriptors
+        self.expenseCategoriesJSON = Self.encodeExpenseCategoryDescriptors(categoriesToUse)
         self.hasCompletedOnboarding = hasCompletedOnboarding
     }
 
     public var preferredAppearance: AppearancePreference {
         get { AppearancePreference(rawValue: preferredAppearanceRaw ?? AppearancePreference.system.rawValue) ?? .system }
         set { preferredAppearanceRaw = newValue.rawValue }
+    }
+
+    private static func decodeExpenseCategoryDescriptors(from json: String) -> [ExpenseCategoryDescriptor] {
+        let decoder = JSONDecoder()
+        if let data = json.data(using: .utf8),
+           let decoded = try? decoder.decode([ExpenseCategoryDescriptor].self, from: data),
+           !decoded.isEmpty {
+            return decoded
+        }
+        return Self.defaultExpenseCategoryDescriptors
+    }
+
+    private static func encodeExpenseCategoryDescriptors(_ descriptors: [ExpenseCategoryDescriptor]) -> String {
+        let encoder = JSONEncoder()
+        if let data = try? encoder.encode(descriptors),
+           let string = String(data: data, encoding: .utf8) {
+            return string
+        }
+        return Self.defaultExpenseCategoryJSON
     }
 }

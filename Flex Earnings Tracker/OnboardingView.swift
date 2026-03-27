@@ -13,11 +13,13 @@ struct OnboardingView: View {
     @State private var notificationPermissionGranted = false
     @State private var currentStep: Int = 0
 
-    private let steps = 2
+    private let steps = 3
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            FlexErrnTheme.backgroundGradient
+                .ignoresSafeArea()
+            Color.black.opacity(0.35)
                 .ignoresSafeArea()
             VStack(spacing: 24) {
                 Image(systemName: "location.circle.fill")
@@ -28,6 +30,8 @@ struct OnboardingView: View {
 
                 switch currentStep {
                 case 0:
+                    introStep
+                case 1:
                     notificationStep
                 default:
                     locationStep
@@ -44,34 +48,49 @@ struct OnboardingView: View {
                         .buttonStyle(.bordered)
                     }
 
-                    Button(currentStep == steps - 1 ? "Let’s go" : "Next") {
-                        if currentStep == steps - 1 {
-                            completeOnboarding()
-                        } else {
-                            currentStep += 1
-                        }
+                Button(currentStep == steps - 1 ? "Let’s go" : "Next") {
+                    if currentStep == steps - 1 {
+                        completeOnboarding()
+                    } else {
+                        currentStep += 1
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(currentStep == 0 && !notificationPermissionGranted)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 }
             }
             .padding(32)
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+            .shadow(color: Color.black.opacity(0.4), radius: 30, x: 0, y: 10)
             .padding()
         }
         .onAppear { animateIcon = true }
         .onChange(of: notificationPermissionGranted) { granted in
-            if granted && currentStep == 0 {
-                currentStep = 1
+            if granted && currentStep == 1 {
+                currentStep = 2
+            }
+        }
+    }
+
+    private var introStep: some View {
+        VStack(spacing: 14) {
+            Text("Welcome aboard, FlexErrn Drivers!")
+                .font(.title2)
+                .bold()
+                .foregroundColor(.primary)
+                .minimumScaleFactor(0.65)
+                .allowsTightening(true)
+                .lineLimit(1)
+            ForEach(introBullets, id: \.self) { bullet in
+                BulletRow(text: bullet)
             }
         }
     }
 
     private var notificationStep: some View {
         VStack(spacing: 8) {
-            Text("Welcome aboard, FlexErrn pros!")
+            Text("Enable reminders")
                 .font(.title2)
                 .bold()
                 .foregroundColor(.primary)
@@ -87,7 +106,7 @@ struct OnboardingView: View {
                     .cornerRadius(12)
             }
             .disabled(notificationPermissionGranted)
-            Text(notificationPermissionGranted ? "You’ll hear from us before a block ends." : "iOS will ask permission to deliver helpful reminders tied to each block.")
+            Text(notificationPermissionGranted ? "Notifications processed on device and can be turned off at any time - we can't spam you even if we wanted to." : "iOS will ask permission to deliver helpful reminders tied to each block.")
                 .font(.caption2)
                 .foregroundStyle(notificationPermissionGranted ? .green : .secondary)
                 .multilineTextAlignment(.center)
@@ -156,6 +175,32 @@ struct OnboardingView: View {
             return "Background GPS is ready, so FlexErrn can keep counting miles even when the app leaves the foreground."
         } else {
             return "We might not track mileage properly unless location is allowed always. Tap the button above to enable full tracking."
+        }
+    }
+
+    private let introBullets = [
+        "Track your Dollars - base pay, tips, mileage and other expenses.",
+        "Track your Miles - processed on device using GPS or through manual entry.",
+        "Local Notifications - On-Device reminders to finish tracking your miles and expenses near the end of your blocks.",
+        "Trend Data - visualizations and insights into your earnings and expenses, processed locally. Export your data to use for whatever you'd like, it's your data.",
+        "Everything happens on-device - no account, no back-end, no middlemen. Your data is YOUR data."
+    ]
+
+    private struct BulletRow: View {
+        let text: String
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 8) {
+                Circle()
+                    .frame(width: 6, height: 6)
+                    .foregroundColor(.accentColor)
+                    .padding(.top, 6)
+                Text(text)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var dataMessage: String?
     @State private var dataMessageStyle: DataMessageStyle = .info
     @State private var mileageSavedMessage: String?
+    @State private var showExpenseCategoryEditor: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -26,10 +27,6 @@ struct SettingsView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         SectionCard(title: "Appearance") {
-                            Text("FlexErrn keeps the look and feel consistent while giving you a quick toggle.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
                             Picker("Theme", selection: $selectedAppearance) {
                                 ForEach(AppearancePreference.allCases) { appearance in
                                     Text(appearance.displayName).tag(appearance)
@@ -39,23 +36,46 @@ struct SettingsView: View {
                             .onChange(of: selectedAppearance) { _ in syncAppearancePreference() }
                         }
 
-                        SectionCard(title: "Mileage rate") {
+                        SectionCard(title: "Expenses") {
+                            Button {
+                                showExpenseCategoryEditor = true
+                            } label: {
+                                Label("Manage expense categories", systemImage: "list.bullet")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .buttonBorderShape(.capsule)
+                            .tint(.accentColor)
+                        }
+
+                        SectionCard(title: "Mileage deduction rate (cents)") {
                             TextField("IRS mileage rate (cents per mile)", text: $irsRateText)
                                 .keyboardType(.numberPad)
                                 .keyboardDoneToolbar()
                                 .onChange(of: irsRateText) { _ in mileageSavedMessage = nil }
                                 .onSubmit { save() }
-                            Text("Enter cents (70 = $0.70/mi); changes only affect future blocks.")
+                            Text("IRS rate is shown in cents (70 = $0.70/mi). It determines the mileage deduction when you add new blocks and matches the current IRS standard rate; changes are not retroactive but only affect future entries.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                             if let message = mileageSavedMessage {
                                 Text(message)
                                     .font(.caption2)
                                     .foregroundStyle(.green)
+                                }
                             }
-                        }
 
                         dataCard
+
+                        SectionCard(title: "Expenses") {
+                            Button {
+                                showExpenseCategoryEditor = true
+                            } label: {
+                                Label("Manage expense categories", systemImage: "list.bullet")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .buttonBorderShape(.capsule)
+                            .tint(.accentColor)
+                        }
                     }
                     .padding()
                     .padding(.bottom, 32)
@@ -67,6 +87,13 @@ struct SettingsView: View {
             }
             .sheet(item: $shareableBackup) { backup in
                 ActivityView(activityItems: [backup.url])
+            }
+            .sheet(isPresented: $showExpenseCategoryEditor) {
+                if let appSettings = settings.first {
+                    ExpenseCategoryEditor(appSettings: appSettings)
+                } else {
+                    Text("No settings available.")
+                }
             }
             .fileImporter(
                 isPresented: $showImporter,
@@ -101,7 +128,7 @@ struct SettingsView: View {
     }
 
     private var dataCard: some View {
-        SectionCard(title: "Data & exports") {
+        SectionCard(title: "Data") {
             Button {
                 do {
                     let url = try createBackupFile()
@@ -113,12 +140,18 @@ struct SettingsView: View {
             } label: {
                 Label("Backup FlexErrn Data", systemImage: "square.and.arrow.up")
             }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.accentColor)
 
             Button {
                 showImporter = true
             } label: {
                 Label("Import FlexErrn Backup", systemImage: "square.and.arrow.down")
             }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.accentColor)
 
             Button {
                 csvDocument = CSVDocument(text: makeCSVText())
@@ -126,6 +159,9 @@ struct SettingsView: View {
             } label: {
                 Label("Export to CSV", systemImage: "square.and.arrow.up.on.square")
             }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.accentColor)
 
             if let message = dataMessage {
                 Text(message)
@@ -139,7 +175,9 @@ struct SettingsView: View {
             } label: {
                 Label("Clear All Data", systemImage: "trash")
             }
-            .foregroundColor(.red)
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.red)
         }
     }
 
@@ -342,7 +380,9 @@ struct SettingsView: View {
                 irsMileageRate: setting.irsMileageRate,
                 currencyCode: setting.currencyCode,
                 roundingScale: setting.roundingScale,
-                preferredAppearanceRaw: setting.preferredAppearanceRaw
+                preferredAppearanceRaw: setting.preferredAppearanceRaw,
+                includePreReminder: setting.includePreReminder,
+                expenseCategoryDescriptors: setting.expenseCategoryDescriptors
             )
         }
 
@@ -416,7 +456,9 @@ struct SettingsView: View {
                 id: settingPayload.id,
                 irsMileageRate: settingPayload.irsMileageRate,
                 currencyCode: settingPayload.currencyCode,
-                roundingScale: settingPayload.roundingScale
+                roundingScale: settingPayload.roundingScale,
+                includePreReminder: settingPayload.includePreReminder ?? true,
+                expenseCategories: settingPayload.expenseCategoryDescriptors
             )
             setting.preferredAppearanceRaw = settingPayload.preferredAppearanceRaw
             context.insert(setting)
@@ -428,10 +470,12 @@ struct SettingsView: View {
 
 private struct SectionCard<Content: View>: View {
     let title: String
+    let background: AnyShapeStyle
     let content: Content
 
-    init(title: String, @ViewBuilder content: () -> Content) {
+    init(title: String, background: AnyShapeStyle = AnyShapeStyle(.ultraThinMaterial), @ViewBuilder content: () -> Content) {
         self.title = title
+        self.background = background
         self.content = content()
     }
 
@@ -441,6 +485,270 @@ private struct SectionCard<Content: View>: View {
                 .font(.headline)
             content
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(background, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: FlexErrnTheme.cardShadowColor, radius: 20, x: 0, y: 10)
+    }
+}
+
+private struct ExpenseCategoryEditor: View {
+    var appSettings: AppSettings
+    @Environment(\.dismiss) private var dismiss
+    @State private var descriptors: [ExpenseCategoryDescriptor]
+    @State private var newCategoryName: String = ""
+
+    init(appSettings: AppSettings) {
+        self.appSettings = appSettings
+        _descriptors = State(initialValue: appSettings.expenseCategoryDescriptors)
+    }
+
+    var body: some View {
+        ZStack {
+            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            VStack(spacing: 20) {
+                header
+                addRow
+                descriptorList
+                actionRow
+            }
+            .padding(24)
+        }
+        .presentationDetents([.fraction(0.75)])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Expense categories")
+                .font(.title3)
+                .bold()
+            Text("Add, rename, or reorder the list of categories used while logging expenses.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var addRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("New category")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            HStack {
+                TextField("Category name", text: $newCategoryName)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled(true)
+                Button("Add") {
+                    addCategory()
+                }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .controlSize(.small)
+                .disabled(newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
         .flexErrnCardStyle()
     }
+
+    private var descriptorList: some View {
+        List {
+            ForEach($descriptors) { $descriptor in
+                HStack {
+                    Image(systemName: "line.horizontal.3")
+                        .foregroundColor(.secondary)
+                    TextField("Category name", text: $descriptor.name)
+                        .autocorrectionDisabled(true)
+                }
+                .padding(.vertical, 4)
+            }
+            .onDelete { descriptors.remove(atOffsets: $0) }
+            .onMove { descriptors.move(fromOffsets: $0, toOffset: $1) }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .environment(\.editMode, .constant(.active))
+        .frame(maxHeight: 320)
+        .flexErrnCardStyle()
+    }
+
+    private var actionRow: some View {
+        HStack {
+            Button("Cancel") {
+                dismiss()
+            }
+            .buttonStyle(.bordered)
+            Spacer()
+            Button("Save") {
+                saveChanges()
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+        }
+        .padding(.top, 4)
+    }
+
+    private func addCategory() {
+        let trimmed = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let descriptor = ExpenseCategoryDescriptor.custom(name: trimmed)
+        descriptors.append(descriptor)
+        newCategoryName = ""
+    }
+
+    private func saveChanges() {
+        appSettings.expenseCategoryDescriptors = descriptors
+        dismiss()
+    }
+}
+
+private struct ShareableBackup: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+private struct ActivityView: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+private enum DataMessageStyle {
+    case info
+    case success
+    case error
+
+    var color: Color {
+        switch self {
+        case .info: return .secondary
+        case .success: return .green
+        case .error: return .red
+        }
+    }
+}
+
+private struct BackupDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    var payload: BackupPayload
+
+    init(payload: BackupPayload) {
+        self.payload = payload
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let contents = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        payload = try JSONDecoder().decode(BackupPayload.self, from: contents)
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let data = try JSONEncoder().encode(payload)
+        return FileWrapper(regularFileWithContents: data)
+    }
+
+    static var empty: BackupDocument {
+        BackupDocument(payload: .empty)
+    }
+}
+
+private struct BackupPayload: Codable {
+    let blocks: [BlockPayload]
+    let settings: [AppSettingsPayload]
+
+    static var empty: BackupPayload {
+        BackupPayload(blocks: [], settings: [])
+    }
+}
+
+private struct BlockPayload: Codable {
+    let id: UUID
+    let date: Date
+    let durationMinutes: Int
+    let grossBase: Decimal
+    let hasTips: Bool
+    let tipsAmount: Decimal?
+    let miles: Decimal
+    let irsRateSnapshot: Decimal
+    let statusRaw: String
+    let notes: String?
+    let createdAt: Date
+    let updatedAt: Date
+    let expenses: [ExpensePayload]
+    let auditEntries: [AuditEntryPayload]
+}
+
+private struct ExpensePayload: Codable {
+    let id: UUID
+    let categoryRaw: String
+    let amount: Decimal
+    let note: String?
+    let createdAt: Date
+}
+
+private struct AuditEntryPayload: Codable {
+    let id: UUID
+    let timestamp: Date
+    let action: String
+    let field: String?
+    let oldValue: String?
+    let newValue: String?
+    let note: String?
+}
+
+private struct AppSettingsPayload: Codable {
+    let id: UUID
+    let irsMileageRate: Decimal
+    let currencyCode: String
+    let roundingScale: Int
+    let preferredAppearanceRaw: String?
+    let includePreReminder: Bool?
+    let expenseCategoryDescriptors: [ExpenseCategoryDescriptor]?
+}
+
+private struct CSVDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
+    var text: String
+
+    init(text: String) {
+        self.text = text
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let contents = configuration.file.regularFileContents,
+              let string = String(data: contents, encoding: .utf8) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        text = string
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let data = text.data(using: .utf8) ?? Data()
+        return FileWrapper(regularFileWithContents: data)
+    }
+
+    static var empty: CSVDocument {
+        CSVDocument(text: "")
+    }
+}
+
+private struct ExpenseCSV: Encodable {
+    let categoryRaw: String
+    let amount: Decimal
+    let note: String?
+    let createdAt: Date
+}
+
+private struct AuditCSV: Encodable {
+    let timestamp: Date
+    let actionRaw: String
+    let field: String?
+    let oldValue: String?
+    let newValue: String?
+    let note: String?
 }

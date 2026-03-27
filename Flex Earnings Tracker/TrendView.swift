@@ -9,37 +9,48 @@ struct TrendView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                if blocks.isEmpty {
-                    VStack {
-                        Spacer()
-                        VStack(spacing: 20) {
-                            Image(systemName: "chart.bar.xaxis")
-                                .font(.system(size: 80))
-                                .foregroundStyle(Color.accentColor)
-                            Text("No trends yet")
-                                .font(.title2)
-                                .bold()
-                            Text("Start by accepting your first block and tracking your mileage. We'll fill this space with your earnings, miles, and scheduled trends once data is available.")
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: 320)
+            ZStack {
+                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    if blocks.isEmpty {
+                        emptyState
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    } else {
+                        VStack(alignment: .leading, spacing: 24) {
+                            earningsAndMileageCard
+
+                            TrendSectionCard(title: "Weekly trends") {
+                                grossCharts
+                            }
+
+                            TrendSectionCard(title: "Recent activity") {
+                                recentSections
+                            }
                         }
-                        Spacer()
+                        .padding()
+                        .padding(.bottom, 32)
                     }
-                    .frame(minHeight: UIScreen.main.bounds.height * 0.6)
-                } else {
-                    VStack(alignment: .leading, spacing: 24) {
-                        header
-                        metricGrid
-                        grossCharts
-                        recentSections
-                    }
-                    .padding()
                 }
             }
             .navigationTitle("Trends")
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.system(size: 80))
+                .foregroundStyle(.white)
+            Text("No trends yet")
+                .font(.title2)
+                .bold()
+                .foregroundColor(.white)
+            Text("Accept your first block and track mileage to populate this page with earnings, tips, and upcoming blocks.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 320)
         }
     }
 
@@ -47,9 +58,23 @@ struct TrendView: View {
     @State private var highlightedMonth: PeriodStats? = nil
 
     private var header: some View {
-        Text("Earnings & Mileage")
-            .font(.title2)
-            .bold()
+        HStack {
+            Text("Earnings & Mileage")
+                .font(.title2)
+                .bold()
+            Spacer()
+            Text("\(blocks.count) tracked • \(scheduledBlocksThisWeek.count) upcoming")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var earningsAndMileageCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            metricGrid
+        }
+        .flexErrnCardStyle()
     }
 
     private var metricGrid: some View {
@@ -84,7 +109,7 @@ struct TrendView: View {
     }
 
     private var grossCharts: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Gross per week")
                 .font(.headline)
             weeklyChart
@@ -401,6 +426,26 @@ struct TrendView: View {
         formatter.maximumFractionDigits = 2
         formatter.minimumFractionDigits = 0
         return "\(formatter.string(from: value as NSDecimalNumber) ?? "0") mi"
+    }
+}
+
+private struct TrendSectionCard<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(title)
+                .font(.title3)
+                .bold()
+            content
+        }
+        .flexErrnCardStyle()
     }
 }
 

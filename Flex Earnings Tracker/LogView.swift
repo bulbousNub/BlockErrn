@@ -58,13 +58,16 @@ struct LogView: View {
     }
 
     private func sectionCard(_ section: BlockSection) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(sectionHeader(for: section))
-                .font(.headline)
-            ForEach(section.blocks, id: \.id) { block in
-                blockCard(block)
+            VStack(alignment: .leading, spacing: 12) {
+                Text(sectionHeader(for: section))
+                    .font(.headline)
+                ForEach(section.blocks, id: \.id) { block in
+                    NavigationLink(destination: BlockDetailView(block: block)) {
+                        blockCard(block)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-        }
         .flexErrnCardStyle()
     }
 

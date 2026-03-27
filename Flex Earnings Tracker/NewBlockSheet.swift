@@ -19,7 +19,7 @@ struct NewBlockSheet: View {
     @State private var startTime: Date = Date()
     @State private var endTime: Date = Date()
     @State private var expenses: [ExpenseRow] = []
-    @State private var newExpenseCategory: ExpenseCategory = .drinks
+    @State private var newExpenseCategoryID: String = ExpenseCategoryDescriptor.defaultList.first?.id ?? ExpenseCategory.drinks.rawValue
     @State private var newExpenseAmount: String = ""
     @State private var newExpenseNote: String = ""
     @FocusState private var focusedField: Field?
@@ -114,16 +114,16 @@ struct NewBlockSheet: View {
                     } else {
                         ForEach(expenses) { row in
                             VStack(alignment: .leading) {
-                                Text("\(ExpenseCategory(rawValue: row.categoryRaw)?.displayName ?? row.categoryRaw.capitalized)")
+                                Text(categoryName(for: row.categoryRaw))
                                 Text("$\(row.amount) • \(row.note ?? "")")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                         }
                     }
-                    Picker("Category", selection: $newExpenseCategory) {
-                        ForEach(ExpenseCategory.allCases) { category in
-                            Text(category.displayName).tag(category)
+                    Picker("Category", selection: $newExpenseCategoryID) {
+                        ForEach(categoryDescriptors) { descriptor in
+                            Text(descriptor.name).tag(descriptor.id)
                         }
                     }
                     TextField("Amount ($)", text: $newExpenseAmount)
@@ -159,6 +159,10 @@ struct NewBlockSheet: View {
             }
             .onAppear {
                 focusedField = .gross
+                ensureValidNewExpenseCategorySelection()
+            }
+            .onChange(of: expenseCategoryIDs) { _ in
+                ensureValidNewExpenseCategorySelection()
             }
         }
     }
@@ -190,7 +194,7 @@ struct NewBlockSheet: View {
         for expenseRow in expenses {
             if let amount = Decimal(string: expenseRow.amount) {
                 let expense = Expense(
-                    category: ExpenseCategory(rawValue: expenseRow.categoryRaw) ?? .drinks,
+                    categoryRaw: expenseRow.categoryRaw,
                     amount: amount,
                     note: expenseRow.note
                 )
@@ -199,7 +203,8 @@ struct NewBlockSheet: View {
         }
         block.auditEntries.append(AuditEntry(action: AuditAction.created, note: "Block added manually"))
         context.insert(block)
-        NotificationManager.shared.scheduleBlockReminders(for: block)
+        let includePreReminder = settings.first?.includePreReminder ?? true
+        NotificationManager.shared.scheduleBlockReminders(for: block, includePreReminder: includePreReminder)
         try? context.save()
         dismiss()
     }
@@ -250,14 +255,37 @@ struct NewBlockSheet: View {
     }
 
     private func addExpense() {
+        let categoryRaw = expenseCategoryIDs.contains(newExpenseCategoryID) ? newExpenseCategoryID : defaultNewExpenseCategoryID
         let row = ExpenseRow(
-            categoryRaw: newExpenseCategory.rawValue,
+            categoryRaw: categoryRaw,
             amount: newExpenseAmount,
             note: newExpenseNote.isEmpty ? nil : newExpenseNote
         )
         expenses.append(row)
         newExpenseAmount = ""
         newExpenseNote = ""
+    }
+
+    private var categoryDescriptors: [ExpenseCategoryDescriptor] {
+        settings.first?.expenseCategoryDescriptors ?? ExpenseCategoryDescriptor.defaultList
+    }
+
+    private var expenseCategoryIDs: [String] {
+        categoryDescriptors.map(\.id)
+    }
+
+    private var defaultNewExpenseCategoryID: String {
+        categoryDescriptors.first?.id ?? ExpenseCategoryDescriptor.defaultList.first?.id ?? ExpenseCategory.drinks.rawValue
+    }
+
+    private func ensureValidNewExpenseCategorySelection() {
+        if !expenseCategoryIDs.contains(newExpenseCategoryID) {
+            newExpenseCategoryID = defaultNewExpenseCategoryID
+        }
+    }
+
+    private func categoryName(for raw: String) -> String {
+        categoryDescriptors.first(where: { $0.id == raw })?.name ?? raw.capitalized
     }
 }
 
