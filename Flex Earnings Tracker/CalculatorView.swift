@@ -158,15 +158,19 @@ struct CalculatorView: View {
             }
             .padding(.vertical, 8)
             Divider()
-            HStack(alignment: .center, spacing: 12) {
-                pickerPill(title: "Hours", value: $selectedHours, range: 0..<9)
-                pickerPill(title: "Minutes", value: $selectedMinutes, range: [0, 15, 30, 45])
-                Toggle(isOn: $hasTipsOnHome) {
-                    Text("Has tips")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .toggleStyle(.switch)
+            HStack(alignment: .top, spacing: 12) {
+                durationMenuPicker(title: "Hours", value: $selectedHours, options: Array(0..<9))
+                durationMenuPicker(title: "Minutes", value: $selectedMinutes, options: [0, 15, 30, 45])
+                Toggle("", isOn: $hasTipsOnHome)
+                    .toggleStyle(.switch)
+                    .overlay(
+                        Text("Has tips")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .offset(y: -16),
+                        alignment: .top
+                    )
+                    .padding(.top, 8)
                 Spacer()
                 Button {
                     computeHourly()
@@ -349,20 +353,34 @@ struct CalculatorView: View {
         currentTime = Date()
     }
 
-    // existing helpers below (computeHourly, acceptBlock, etc.)
-    private func pickerPill<T: Hashable, C: RandomAccessCollection>(title: String, value: Binding<T>, range: C) -> some View where C.Element == T, C.Element: Hashable {
+    private func durationMenuPicker(title: String, value: Binding<Int>, options: [Int]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased())
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            Picker(title, selection: value) {
-                ForEach(Array(range), id: \.self) { item in
-                    Text("\(item)").tag(item)
+            Menu {
+                ForEach(options, id: \.self) { option in
+                    Button {
+                        value.wrappedValue = option
+                    } label: {
+                        Text("\(option)")
+                    }
                 }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("\(value.wrappedValue)")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
+                        .frame(minWidth: 24)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity, minHeight: 24)
             }
-            .pickerStyle(.menu)
+            .menuStyle(.borderlessButton)
             .tint(.primary)
-            .labelsHidden()
         }
         .frame(minWidth: 60)
     }
