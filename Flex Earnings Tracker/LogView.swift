@@ -5,6 +5,7 @@ struct LogView: View {
     @Environment(\.modelContext) private var context
     @Query private var blocks: [Block]
     @State private var showManualAdd: Bool = false
+    @State private var refreshCounter: Int = 0
 
     private let calendar = Calendar.current
 
@@ -22,6 +23,9 @@ struct LogView: View {
                     }
                     .padding()
                     .padding(.bottom, 32)
+                }
+                .refreshable {
+                    refreshBlocks()
                 }
             }
             .navigationTitle("Blocks Log")
@@ -144,6 +148,10 @@ struct LogView: View {
         let formatter = Self.sectionFormatter
         let title = formatter.string(from: section.date)
         return section.isFuture ? "\(title) — Upcoming" : title
+    }
+
+    private func refreshBlocks() {
+        refreshCounter += 1
     }
 
     private func cancel(_ block: Block) {

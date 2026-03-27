@@ -4,6 +4,7 @@ import Charts
 
 struct TrendView: View {
     @Query private var blocks: [Block]
+    @State private var refreshCounter: Int = 0
 
     private let calendar = Calendar(identifier: .gregorian)
 
@@ -32,26 +33,36 @@ struct TrendView: View {
                         .padding(.bottom, 32)
                     }
                 }
+                .refreshable {
+                    refreshStats()
+                }
             }
             .navigationTitle("Trends")
         }
     }
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private var emptyState: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 80))
-                .foregroundStyle(.white)
-            Text("No trends yet")
-                .font(.title2)
-                .bold()
-                .foregroundColor(.white)
-            Text("Accept your first block and track mileage to populate this page with earnings, tips, and upcoming blocks.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 320)
+        VStack {
+            Spacer()
+            VStack(spacing: 20) {
+                Image(systemName: "chart.bar.xaxis")
+                    .font(.system(size: 80))
+                    .foregroundStyle(colorScheme == .light ? .black : .white)
+                Text("No Trends Yet")
+                    .font(.title2)
+                    .bold()
+                    .foregroundColor(colorScheme == .light ? .black : .white)
+                Text("Accept your first block and track mileage to populate this page with earnings, tips, and upcoming blocks.")
+                    .font(.body)
+                    .foregroundColor(colorScheme == .light ? .black : .secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 320)
+            }
+            Spacer()
         }
+        .frame(maxWidth: .infinity, minHeight: UIScreen.main.bounds.height * 0.65)
     }
 
     @State private var highlightedWeek: PeriodStats? = nil
@@ -426,6 +437,10 @@ struct TrendView: View {
         formatter.maximumFractionDigits = 2
         formatter.minimumFractionDigits = 0
         return "\(formatter.string(from: value as NSDecimalNumber) ?? "0") mi"
+    }
+
+    private func refreshStats() {
+        refreshCounter += 1
     }
 }
 
