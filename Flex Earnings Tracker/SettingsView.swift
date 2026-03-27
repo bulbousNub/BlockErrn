@@ -37,14 +37,18 @@ struct SettingsView: View {
                         }
 
                         SectionCard(title: "Expenses") {
-                            Button {
-                                showExpenseCategoryEditor = true
-                            } label: {
-                                Label("Manage expense categories", systemImage: "list.bullet")
+                            HStack {
+                                Spacer()
+                                Button {
+                                    showExpenseCategoryEditor = true
+                                } label: {
+                                    Label("Manage expense categories", systemImage: "list.bullet")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .buttonBorderShape(.capsule)
+                                .tint(.accentColor)
+                                Spacer()
                             }
-                            .buttonStyle(.borderedProminent)
-                            .buttonBorderShape(.capsule)
-                            .tint(.accentColor)
                         }
 
                         SectionCard(title: "Mileage deduction rate (cents)") {
@@ -65,17 +69,6 @@ struct SettingsView: View {
                             }
 
                         dataCard
-
-                        SectionCard(title: "Expenses") {
-                            Button {
-                                showExpenseCategoryEditor = true
-                            } label: {
-                                Label("Manage expense categories", systemImage: "list.bullet")
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .buttonBorderShape(.capsule)
-                            .tint(.accentColor)
-                        }
                     }
                     .padding()
                     .padding(.bottom, 32)

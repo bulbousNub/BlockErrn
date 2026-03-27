@@ -401,7 +401,11 @@
 				CODE_SIGN_ENTITLEMENTS = "Flex Earnings Tracker/BackgroundModes.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+<<<<<<< HEAD
 				CURRENT_PROJECT_VERSION = 9;
+=======
+				CURRENT_PROJECT_VERSION = 10;
+>>>>>>> UI_Enhance
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -447,7 +451,11 @@
 				CODE_SIGN_ENTITLEMENTS = "Flex Earnings Tracker/BackgroundModes.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+<<<<<<< HEAD
 				CURRENT_PROJECT_VERSION = 9;
+=======
+				CURRENT_PROJECT_VERSION = 10;
+>>>>>>> UI_Enhance
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;

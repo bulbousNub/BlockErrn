@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CoreLocation
+import UIKit
 
 struct OnboardingView: View {
     @EnvironmentObject private var mileageTracker: MileageTracker
@@ -9,11 +10,10 @@ struct OnboardingView: View {
     let appSettings: AppSettings
     let onComplete: () -> Void
 
-    @State private var animateIcon = false
     @State private var notificationPermissionGranted = false
     @State private var currentStep: Int = 0
 
-    private let steps = 3
+    private let steps = 4
 
     var body: some View {
         ZStack {
@@ -22,22 +22,8 @@ struct OnboardingView: View {
             Color.black.opacity(0.35)
                 .ignoresSafeArea()
             VStack(spacing: 24) {
-                Image(systemName: "location.circle.fill")
-                    .font(.system(size: 110))
-                    .foregroundStyle(Color.accentColor)
-                    .scaleEffect(animateIcon ? 1.05 : 0.95)
-                    .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: animateIcon)
-
-                switch currentStep {
-                case 0:
-                    introStep
-                case 1:
-                    notificationStep
-                default:
-                    locationStep
-                }
-
-                stepIndicator
+                stepContent(for: currentStep)
+            stepIndicator
 
                 HStack(spacing: 12) {
                     if currentStep > 0 {
@@ -65,7 +51,6 @@ struct OnboardingView: View {
             .shadow(color: Color.black.opacity(0.4), radius: 30, x: 0, y: 10)
             .padding()
         }
-        .onAppear { animateIcon = true }
         .onChange(of: notificationPermissionGranted) { granted in
             if granted && currentStep == 1 {
                 currentStep = 2
@@ -75,6 +60,7 @@ struct OnboardingView: View {
 
     private var introStep: some View {
         VStack(spacing: 14) {
+            iconBadge("sparkles")
             Text("Welcome aboard, FlexErrn Drivers!")
                 .font(.title2)
                 .bold()
@@ -88,8 +74,29 @@ struct OnboardingView: View {
         }
     }
 
+    private var brandingStep: some View {
+        VStack(spacing: 18) {
+            Image("BrandLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 140, height: 140)
+                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .shadow(color: Color.black.opacity(0.25), radius: 15, x: 0, y: 6)
+            Text("FlexErrn")
+                .font(.largeTitle)
+                .bold()
+                .foregroundColor(.primary)
+            Text("Your Earnings. Your Miles. Your Data.")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var notificationStep: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
+            iconBadge("bell.fill")
             Text("Enable reminders")
                 .font(.title2)
                 .bold()
@@ -114,7 +121,8 @@ struct OnboardingView: View {
     }
 
     private var locationStep: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 10) {
+            iconBadge("location.north.fill")
             Text("Why we need location")
                 .font(.headline)
                 .foregroundColor(.primary)
@@ -138,6 +146,29 @@ struct OnboardingView: View {
                     .padding(.horizontal, 8)
             }
         }
+    }
+
+    @ViewBuilder private func stepContent(for step: Int) -> some View {
+        switch step {
+        case 0:
+            brandingStep
+        case 1:
+            introStep
+        case 2:
+            notificationStep
+        default:
+            locationStep
+        }
+    }
+
+    private func iconBadge(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 72, weight: .semibold))
+            .frame(width: 96, height: 96)
+            .background(Circle().fill(Color.accentColor))
+            .clipShape(Circle())
+            .foregroundStyle(.white)
+            .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
     }
 
     private var stepIndicator: some View {
