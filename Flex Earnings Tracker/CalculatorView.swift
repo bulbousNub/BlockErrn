@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import Combine
 
 struct CalculatorView: View {
     @Binding var selectedTab: Int
@@ -28,240 +27,257 @@ struct CalculatorView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Calculator") {
-                    VStack(spacing: 16) {
-                        HStack(spacing: 4) {
-                            if !grossBaseText.isEmpty {
-                                Text("$")
-                                    .font(.headline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            TextField("Gross payout ($)", text: $grossBaseText)
-                                .keyboardType(.decimalPad)
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                                .multilineTextAlignment(.leading)
-                        }
-                        .padding(.vertical, 2)
-                        .padding(.horizontal, 4)
+            ZStack {
+                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
 
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.secondarySystemFill))
-                            .frame(height: 60)
-                            .overlay(
-                                HStack(spacing: 24) {
-                                    pickerPill(title: "Hours", value: $selectedHours, range: 0..<9)
-                                        .frame(maxWidth: .infinity)
-                                    pickerPill(title: "Minutes", value: $selectedMinutes, range: [0, 15, 30, 45])
-                                        .frame(maxWidth: .infinity)
-                                    Button(action: computeHourly) {
-                                        Text("Compute")
-                                            .font(.caption)
-                                            .fontWeight(.semibold)
-                                            .lineLimit(1)
-                                            .fixedSize()
-                                            .padding(.vertical, 6)
-                                            .padding(.horizontal, 18)
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .buttonBorderShape(.capsule)
-                                    .controlSize(.small)
-                                }
-                                .padding(.horizontal)
-                            )
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        heroCard
+                        earningsCard
+                        scheduleCard
+                        remindersCard
+                        actionRow
 
-                        Divider()
-                            .padding(.horizontal, -16)
-
-                        HStack {
-                            Label("$/hr", systemImage: "dollarsign.circle")
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(hourlyRate.isEmpty ? "—" : hourlyRate)
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                                .monospacedDigit()
+                        if !activeBlocks.isEmpty {
+                            sectionBlockList(title: "Active blocks", blocks: activeBlocks)
                         }
 
-                        if showValidation {
-                            Text("Please enter a valid amount and select a duration greater than 0 minutes.")
-                                .foregroundStyle(.red)
-                                .font(.caption)
+                        if !upcomingBlocks.isEmpty {
+                            sectionBlockList(title: "Upcoming blocks", blocks: upcomingBlocks)
                         }
                     }
-                    .padding(.vertical, 8)
-                }
-
-                Section("Block Date") {
-                    Picker("When", selection: $dateMode) {
-                        Text("Today").tag(0)
-                        Text("Future").tag(1)
-                    }
-                    .pickerStyle(.segmented)
-
-                    if dateMode == 1 {
-                        DatePicker("Select date", selection: $selectedDate, in: Date()..., displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                            .labelsHidden()
-                    }
-                    HStack {
-                        HStack {
-                            Text("Start time")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            DatePicker("", selection: Binding(get: { selectedStartTime }, set: startTimeChanged), displayedComponents: .hourAndMinute)
-                                .datePickerStyle(.compact)
-                                .labelsHidden()
-                        }
-                        Spacer()
-                        HStack {
-                            DatePicker("", selection: Binding(get: { selectedEndTime }, set: endTimeChanged), displayedComponents: .hourAndMinute)
-                                .datePickerStyle(.compact)
-                                .labelsHidden()
-                            Text("End time")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                Section("Tips") {
-                    Toggle("Has tips", isOn: $hasTipsOnHome)
-                }
-
-                Button {
-                    acceptBlock()
-                } label: {
-                    Text("Accept Block")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .buttonBorderShape(.capsule)
-                .listRowBackground(Color.clear)
-
-                if !activeBlocks.isEmpty {
-                    Section("Active Blocks") {
-                        ForEach(activeBlocks, id: \.id) { block in
-                            NavigationLink(destination: BlockDetailView(block: block)) {
-                                HStack(alignment: .center, spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(block.date, style: .date)
-                                            .font(.body)
-                                        Text("\(blockTimeFormatter.string(from: startDate(for: block))) – \(blockTimeFormatter.string(from: endDate(for: block)))")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                        Text(durationText(for: block.durationMinutes))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
-                                            Text("Tracking: \(String(format: "%.2f", mileageTracker.currentMiles)) mi")
-                                                .font(.caption)
-                                                .foregroundColor(.accentColor)
-                                        } else {
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                let start = startDate(for: block)
-                                                let minutesUntilStart = max(0, Int(start.timeIntervalSince(currentTime) / 60))
-                                                if start > currentTime {
-                                                    Text("Starting in \(minutesUntilStart) minute\(minutesUntilStart == 1 ? "" : "s")")
-                                                        .font(.caption)
-                                                        .foregroundStyle(.secondary)
-                                                } else {
-                                                    Text("Active")
-                                                        .font(.caption)
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                                Button("Start GPS tracking") {
-                                                    mileageTracker.requestAuthorization()
-                                                    mileageTracker.startTracking(for: block.id)
-                                                }
-                                                .font(.caption2)
-                                                .buttonStyle(.borderedProminent)
-                                                .controlSize(.mini)
-                                                .buttonBorderShape(.capsule)
-                                                .disabled(!mileageTracker.canStartTracking)
-                                                if !mileageTracker.canStartTracking {
-                                                    Text("Enable location access in Settings to track miles.")
-                                                        .font(.caption2)
-                                                        .foregroundStyle(.tertiary)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if !upcomingBlocks.isEmpty {
-                    Section("Upcoming Blocks") {
-                        ForEach(upcomingBlocks, id: \.id) { block in
-                            NavigationLink(destination: BlockDetailView(block: block)) {
-                                HStack(alignment: .center, spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                    Text(block.date, style: .date)
-                                        .font(.body)
-                                    Text("\(blockTimeFormatter.string(from: startDate(for: block))) – \(blockTimeFormatter.string(from: endDate(for: block)))")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                    Text(durationText(for: block.durationMinutes))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text(block.status.displayName)
-                                    .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .frame(minWidth: 0, alignment: .trailing)
-                                }
-                            }
-                        }
-                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 32)
                 }
             }
-            .navigationTitle("FlexErrn")
-            .keyboardDoneToolbar()
+            .navigationTitle("Calculator")
+            .onAppear { startTimer() }
             .alert("Block accepted", isPresented: $showAcceptedAlert) {
-                Button("View in Log") { selectedTab = 1 }
-                Button("OK", role: .cancel) { }
+                Button("Great") { }
             } message: {
-                Text("You can add miles, tips, and expenses in the Log.")
+                Text("FlexErrn saved your block and scheduled reminders.")
             }
-        }
-        .onReceive(Timer.publish(every: 15, on: .main, in: .common).autoconnect()) { value in
-            currentTime = value
-        }
-        .onChange(of: selectedDate) { newDate in
-            selectedStartTime = combine(date: newDate, time: selectedStartTime)
-            selectedEndTime = combine(date: newDate, time: selectedEndTime)
-        }
-        .onChange(of: selectedHours) { _ in
-            syncEndToDuration()
-        }
-        .onChange(of: selectedMinutes) { _ in
-            syncEndToDuration()
         }
     }
 
-    @ViewBuilder
-    private func pickerPill<T: Hashable, C: RandomAccessCollection>(title: String, value: Binding<T>, range: C) -> some View where C.Element == T, C.Element: Hashable {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption)
+    private var heroCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Plan with confidence")
+                .font(.headline)
+            Text("Use the blocks below or create a new entry—the tracker handles gross, tips, mileage, and reminders.")
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Picker("\(title)", selection: value) {
-                ForEach(range, id: \.self) { item in
-                    Text(String(describing: item)).tag(item)
+
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Next reminder")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(Date(), format: .dateTime.hour().minute())")
+                        .font(.title2)
+                        .bold()
+                }
+                Spacer()
+                VStack(alignment: .leading) {
+                    Text("Current rate")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(settings.first?.irsMileageRate.formatted(.currency(code: "USD")) ?? "$0.70/mi")
+                        .font(.title3)
+                        .bold()
                 }
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
         }
+        .flexErrnCardStyle()
+    }
+
+    private var earningsCard: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Gross payout")
+                    .font(.headline)
+                Spacer()
+            }
+            TextField("Gross payout ($)", text: $grossBaseText)
+                .keyboardType(.decimalPad)
+                .font(.title3)
+                .bold()
+                .multilineTextAlignment(.leading)
+                .keyboardDoneToolbar()
+
+            Divider()
+
+            HStack(spacing: 12) {
+                pickerPill(title: "Hours", value: $selectedHours, range: 0..<9)
+                pickerPill(title: "Minutes", value: $selectedMinutes, range: [0, 15, 30, 45])
+                Spacer()
+                Button("Compute") {
+                    computeHourly()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+
+            if !hourlyRate.isEmpty {
+                HStack {
+                    Text("Hourly rate")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(hourlyRate)
+                        .font(.title3)
+                        .bold()
+                }
+            }
+
+            if showValidation {
+                Text("Enter a valid amount and select a duration greater than 0.")
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+            }
+        }
+        .flexErrnCardStyle()
+    }
+
+    private var scheduleCard: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Block window")
+                    .font(.headline)
+                Spacer()
+                Picker("", selection: $dateMode) {
+                    Text("Today").tag(0)
+                    Text("Future").tag(1)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 180)
+            }
+
+            if dateMode == 1 {
+                DatePicker("Select date", selection: $selectedDate, in: Date()..., displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .labelsHidden()
+            }
+
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Start time")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    DatePicker("", selection: Binding(get: { selectedStartTime }, set: startTimeChanged), displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                }
+                Spacer()
+                VStack(alignment: .leading) {
+                    Text("End time")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    DatePicker("", selection: Binding(get: { selectedEndTime }, set: endTimeChanged), displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                }
+            }
+        }
+        .flexErrnCardStyle()
+    }
+
+    private var remindersCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Reminders")
+                .font(.headline)
+            Text("FlexErrn will ping you 15 minutes before your scheduled end and again when the block is due.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Toggle("Include 15-minute reminder", isOn: .constant(true))
+                .labelsHidden()
+                .disabled(true)
+                .foregroundStyle(.secondary)
+        }
+        .flexErrnCardStyle()
+    }
+
+    private var actionRow: some View {
+        Button {
+            acceptBlock()
+        } label: {
+            Text("Accept Block")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding()
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .buttonBorderShape(.capsule)
+    }
+
+    private func sectionBlockList(title: String, blocks: [Block]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+            ForEach(blocks, id: \.id) { block in
+                NavigationLink(destination: BlockDetailView(block: block)) {
+                    BlockCard(block: block)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .flexErrnCardStyle()
+    }
+
+    @ViewBuilder
+    private func BlockCard(block: Block) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(block.date, style: .date)
+                    .font(.subheadline)
+                Spacer()
+                Text(block.status.displayName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Menu {
+                    Button("Complete") { complete(block) }
+                        .disabled(block.status == .completed)
+                    Button("Cancel") { cancel(block) }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                }
+            }
+            Text("\(blockTimeFormatter.string(from: startDate(for: block))) – \(blockTimeFormatter.string(from: endDate(for: block)))")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            HStack {
+                Text("Miles: \(formatDecimal(block.miles))")
+                Spacer()
+                Text("Profit: \(formatCurrency(block.totalProfit))")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
+                Text("Tracking: \(String(format: "%.2f", mileageTracker.currentMiles)) mi")
+                    .font(.caption2)
+                    .foregroundColor(.accentColor)
+            } else {
+                HStack {
+                    Spacer()
+                    Button("Start GPS tracking") {
+                        mileageTracker.requestAuthorization()
+                        mileageTracker.startTracking(for: block.id)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    .disabled(!mileageTracker.canStartTracking)
+                }
+            }
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 4)
+    }
+
+    private func startTimer() {
+        currentTime = Date()
     }
 
     private func computeHourly() {
@@ -302,108 +318,24 @@ struct CalculatorView: View {
         hasTipsOnHome = false
     }
 
-    private func formatCurrency(_ value: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 2
-        return formatter.string(from: value as NSDecimalNumber) ?? "$0.00"
+    private func cancel(_ block: Block) {
+        guard block.status != .cancelled else { return }
+        block.status = .cancelled
+        logStatusChange(for: block, note: "Marked cancelled from calculator")
+        block.updatedAt = Date()
+        context.saveIfNeeded()
     }
 
-    private var upcomingBlocks: [Block] {
-        let now = Date()
-        return blocks
-            .filter { startDate(for: $0) > now }
-            .sorted { startDate(for: $0) < startDate(for: $1) }
+    private func complete(_ block: Block) {
+        guard block.status != .completed else { return }
+        block.status = .completed
+        logStatusChange(for: block, note: "Marked completed from calculator")
+        block.updatedAt = Date()
+        context.saveIfNeeded()
     }
 
-    private var activeBlocks: [Block] {
-        let now = Date()
-        let window = now.addingTimeInterval(45 * 60)
-        return blocks
-            .filter { block in
-                let start = startDate(for: block)
-                let end = endDate(for: block)
-                return start <= window && end > now
-            }
-            .sorted { startDate(for: $0) < startDate(for: $1) }
+    private func logStatusChange(for block: Block, note: String) {
+        let entry = AuditEntry(action: .statusChanged, note: note)
+        block.auditEntries.append(entry)
     }
 
-    private func startDate(for block: Block) -> Date {
-        block.startTime ?? block.date
-    }
-
-    private func endDate(for block: Block) -> Date {
-        if let end = block.endTime {
-            return end
-        }
-        let start = startDate(for: block)
-        let duration = max(1, block.durationMinutes)
-        return start.addingTimeInterval(TimeInterval(duration * 60))
-    }
-
-    @Query(sort: [SortDescriptor(\Block.date)]) private var blocks: [Block]
-
-    private func durationText(for totalMinutes: Int) -> String {
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0 {
-            return "\(hours)h \(String(format: "%02d", minutes))m"
-        } else {
-            return "\(minutes)m"
-        }
-    }
-
-    private func startTimeChanged(_ newValue: Date) {
-        selectedStartTime = combine(date: selectedDate, time: newValue)
-        syncDurationToTimeRange()
-        syncEndToDuration()
-    }
-
-    private func endTimeChanged(_ newValue: Date) {
-        selectedEndTime = combine(date: selectedDate, time: newValue)
-        syncDurationFromTimeRange()
-    }
-
-    private func syncDurationToTimeRange() {
-        let diff = Int(max(1, selectedEndTime.timeIntervalSince(selectedStartTime) / 60))
-        selectedHours = diff / 60
-        selectedMinutes = diff % 60
-    }
-
-    private func syncEndToDuration() {
-        let totalMinutes = selectedHours * 60 + selectedMinutes
-        selectedEndTime = selectedStartTime.addingTimeInterval(TimeInterval(totalMinutes * 60))
-    }
-
-    private func syncDurationFromTimeRange() {
-        syncDurationToTimeRange()
-    }
-
-    private func resetTimePickers() {
-        let nextStart = CalculatorView.nextQuarter(from: Date())
-        selectedStartTime = combine(date: Date(), time: nextStart)
-        selectedEndTime = nextStart.addingTimeInterval(TimeInterval(max(1, selectedHours * 60 + selectedMinutes) * 60))
-    }
-
-    private static func nextQuarter(from date: Date) -> Date {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
-        guard let minute = components.minute else { return date }
-        let remainder = minute % 15
-        let delta = remainder == 0 ? 0 : (15 - remainder)
-        return calendar.date(byAdding: .minute, value: delta, to: date) ?? date
-    }
-
-    private func combine(date: Date, time: Date) -> Date {
-        let calendar = Calendar.current
-        var dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
-        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: time)
-        dateComponents.hour = timeComponents.hour
-        dateComponents.minute = timeComponents.minute
-        dateComponents.second = timeComponents.second
-        return calendar.date(from: dateComponents) ?? date
-    }
-
-}

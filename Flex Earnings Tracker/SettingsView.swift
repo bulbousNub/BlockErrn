@@ -21,74 +21,47 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Appearance") {
-                    Picker("Theme", selection: $selectedAppearance) {
-                        ForEach(AppearancePreference.allCases) { appearance in
-                            Text(appearance.displayName).tag(appearance)
+            ZStack {
+                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        SectionCard(title: "Appearance") {
+                            Text("FlexErrn keeps the look and feel consistent while giving you a quick toggle.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Picker("Theme", selection: $selectedAppearance) {
+                                ForEach(AppearancePreference.allCases) { appearance in
+                                    Text(appearance.displayName).tag(appearance)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .onChange(of: selectedAppearance) { _ in syncAppearancePreference() }
                         }
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: selectedAppearance) { _ in syncAppearancePreference() }
-                }
 
-                Section("Mileage deduction rate (cents)") {
-                    TextField("IRS mileage rate (cents per mile)", text: $irsRateText)
-                        .keyboardType(.numberPad)
-                        .onChange(of: irsRateText) { _ in mileageSavedMessage = nil }
-                        .onSubmit { save() }
-                    Text("IRS rate is shown in cents (70 = $0.70/mi). It determines the mileage deduction when you add new blocks and matches the current IRS standard rate; changes are not retroactive but only affect future entries.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let message = mileageSavedMessage {
-                        Text(message)
-                            .font(.caption2)
-                            .foregroundStyle(.green)
-                    }
-                }
-
-                Section("Data") {
-                    Button {
-                        do {
-                            let url = try createBackupFile()
-                            shareableBackup = ShareableBackup(url: url)
-                            setDataMessage("Backup ready", style: .success)
-                        } catch {
-                            setDataMessage("Backup failed: \(error.localizedDescription)", style: .error)
+                        SectionCard(title: "Mileage rate") {
+                            TextField("IRS mileage rate (cents per mile)", text: $irsRateText)
+                                .keyboardType(.numberPad)
+                                .keyboardDoneToolbar()
+                                .onChange(of: irsRateText) { _ in mileageSavedMessage = nil }
+                                .onSubmit { save() }
+                            Text("Enter cents (70 = $0.70/mi); changes only affect future blocks.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            if let message = mileageSavedMessage {
+                                Text(message)
+                                    .font(.caption2)
+                                    .foregroundStyle(.green)
+                            }
                         }
-                    } label: {
-                        Label("Backup FlexErrn Data", systemImage: "square.and.arrow.up")
-                    }
 
-                    Button {
-                        showImporter = true
-                    } label: {
-                        Label("Import FlexErrn Backup", systemImage: "square.and.arrow.down")
+                        dataCard
                     }
-
-                    Button {
-                        csvDocument = CSVDocument(text: makeCSVText())
-                        showCSVExporter = true
-                    } label: {
-                        Label("Export to CSV", systemImage: "square.and.arrow.up.on.square")
-                    }
-
-                    if let message = dataMessage {
-                        Text(message)
-                            .font(.footnote)
-                            .foregroundStyle(dataMessageStyle.color)
-                    }
-                    Button(role: .destructive) {
-                        showClearConfirmation = true
-                    } label: {
-                        Label("Clear All Data", systemImage: "trash")
-                    }
-                    .foregroundColor(.red)
+                    .padding()
+                    .padding(.bottom, 32)
                 }
             }
             .navigationTitle("Settings")
-            .keyboardDoneToolbar()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Save") { save() } }
             }
@@ -121,10 +94,53 @@ struct SettingsView: View {
             } message: {
                 Text("This removes every block, expense, and custom setting. The action cannot be undone.")
             }
+            .onAppear { loadSettings() }
+            .task(id: settings.first?.id) { loadSettings() }
+            .onChange(of: settings.first?.preferredAppearanceRaw) { _ in loadSettings() }
         }
-        .onAppear { loadSettings() }
-        .task(id: settings.first?.id) { loadSettings() }
-        .onChange(of: settings.first?.preferredAppearanceRaw) { _ in loadSettings() }
+    }
+
+    private var dataCard: some View {
+        SectionCard(title: "Data & exports") {
+            Button {
+                do {
+                    let url = try createBackupFile()
+                    shareableBackup = ShareableBackup(url: url)
+                    setDataMessage("Backup ready", style: .success)
+                } catch {
+                    setDataMessage("Backup failed: \(error.localizedDescription)", style: .error)
+                }
+            } label: {
+                Label("Backup FlexErrn Data", systemImage: "square.and.arrow.up")
+            }
+
+            Button {
+                showImporter = true
+            } label: {
+                Label("Import FlexErrn Backup", systemImage: "square.and.arrow.down")
+            }
+
+            Button {
+                csvDocument = CSVDocument(text: makeCSVText())
+                showCSVExporter = true
+            } label: {
+                Label("Export to CSV", systemImage: "square.and.arrow.up.on.square")
+            }
+
+            if let message = dataMessage {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(dataMessageStyle.color)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(role: .destructive) {
+                showClearConfirmation = true
+            } label: {
+                Label("Clear All Data", systemImage: "trash")
+            }
+            .foregroundColor(.red)
+        }
     }
 
     private func save() {
@@ -410,150 +426,21 @@ struct SettingsView: View {
     }
 }
 
-private struct BackupDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.json] }
-    var payload: BackupPayload
+private struct SectionCard<Content: View>: View {
+    let title: String
+    let content: Content
 
-    init(payload: BackupPayload) {
-        self.payload = payload
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
     }
 
-    init(configuration: ReadConfiguration) throws {
-        guard let contents = configuration.file.regularFileContents else {
-            throw CocoaError(.fileReadCorruptFile)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+            content
         }
-        payload = try JSONDecoder().decode(BackupPayload.self, from: contents)
-    }
-
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = try JSONEncoder().encode(payload)
-        return FileWrapper(regularFileWithContents: data)
-    }
-
-    static var empty: BackupDocument {
-        BackupDocument(payload: .empty)
-    }
-}
-
-private struct BackupPayload: Codable {
-    let blocks: [BlockPayload]
-    let settings: [AppSettingsPayload]
-
-    static var empty: BackupPayload {
-        BackupPayload(blocks: [], settings: [])
-    }
-}
-
-private struct BlockPayload: Codable {
-    let id: UUID
-    let date: Date
-    let durationMinutes: Int
-    let grossBase: Decimal
-    let hasTips: Bool
-    let tipsAmount: Decimal?
-    let miles: Decimal
-    let irsRateSnapshot: Decimal
-    let statusRaw: String
-    let notes: String?
-    let createdAt: Date
-    let updatedAt: Date
-    let expenses: [ExpensePayload]
-    let auditEntries: [AuditEntryPayload]
-}
-
-private struct ExpensePayload: Codable {
-    let id: UUID
-    let categoryRaw: String
-    let amount: Decimal
-    let note: String?
-    let createdAt: Date
-}
-
-private struct AuditEntryPayload: Codable {
-    let id: UUID
-    let timestamp: Date
-    let action: String
-    let field: String?
-    let oldValue: String?
-    let newValue: String?
-    let note: String?
-}
-
-private struct AppSettingsPayload: Codable {
-    let id: UUID
-    let irsMileageRate: Decimal
-    let currencyCode: String
-    let roundingScale: Int
-    let preferredAppearanceRaw: String?
-}
-
-private struct CSVDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
-    var text: String
-
-    init(text: String) {
-        self.text = text
-    }
-
-    init(configuration: ReadConfiguration) throws {
-        guard let contents = configuration.file.regularFileContents,
-              let string = String(data: contents, encoding: .utf8) else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        text = string
-    }
-
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = text.data(using: .utf8) ?? Data()
-        return FileWrapper(regularFileWithContents: data)
-    }
-
-    static var empty: CSVDocument {
-        CSVDocument(text: "")
-    }
-}
-
-private struct ExpenseCSV: Encodable {
-    let categoryRaw: String
-    let amount: Decimal
-    let note: String?
-    let createdAt: Date
-}
-
-private struct AuditCSV: Encodable {
-    let timestamp: Date
-    let actionRaw: String
-    let field: String?
-    let oldValue: String?
-    let newValue: String?
-    let note: String?
-}
-
-private struct ShareableBackup: Identifiable {
-    let id = UUID()
-    let url: URL
-}
-
-private struct ActivityView: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-private enum DataMessageStyle {
-    case info
-    case success
-    case error
-
-    var color: Color {
-        switch self {
-        case .info: return .secondary
-        case .success: return .green
-        case .error: return .red
-        }
+        .flexErrnCardStyle()
     }
 }

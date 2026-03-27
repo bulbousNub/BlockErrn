@@ -10,58 +10,18 @@ struct LogView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                VStack(alignment: .leading, spacing: 4) {
-                    Button {
-                        showManualAdd = true
-                    } label: {
-                        Label("Add Block Manually", systemImage: "plus.square.on.square")
-                            .fontWeight(.semibold)
-                    }
-                    Text("Add historical blocks here while the home calculator stays limited to today or future dates.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(groupedBlocks) { section in
-                    Section(header: Text(sectionHeader(for: section))) {
-                        ForEach(section.blocks, id: \.id) { block in
-                            NavigationLink(destination: BlockDetailView(block: block)) {
-                                VStack(alignment: .leading) {
-                                    HStack {
-                                        Text(block.date, style: .date)
-                                        Spacer()
-                                        Text(block.status.displayName)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    HStack {
-                                        Text("Miles: \(formatDecimal(block.miles))")
-                                        Spacer()
-                                        Text("Expenses: \(formatCurrency(block.additionalExpensesTotal))")
-                                        Spacer()
-                                        Text("Raw: \(formatCurrency(block.grossPayout))")
-                                        Spacer()
-                                        Text("Profit: \(formatCurrency(block.totalProfit))")
-                                    }
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    Text("\(blockTimeFormatter.string(from: block.startTime ?? block.date)) – \(blockTimeFormatter.string(from: block.endTime ?? block.date))")
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                if block.status != .completed {
-                                    Button {
-                                        complete(block)
-                                    } label: {
-                                        Label("Complete", systemImage: "checkmark.circle")
-                                    }
-                                    .tint(.green)
-                                }
-                            }
+            ZStack {
+                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        headerCard
+                        ForEach(groupedBlocks) { section in
+                            sectionCard(section)
                         }
-                        .onDelete { offsets in delete(offsets, in: section) }
                     }
+                    .padding()
+                    .padding(.bottom, 32)
                 }
             }
             .navigationTitle("Blocks Log")
@@ -69,6 +29,87 @@ struct LogView: View {
                 NewBlockSheet()
             }
         }
+    }
+
+    private var headerCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Blocks log")
+                        .font(.title2)
+                        .bold()
+                    Text("Manual entries live here, along with every block you’ve tracked.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    showManualAdd = true
+                } label: {
+                    Label("Add Block", systemImage: "plus.circle")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            Text("Quickly review mileage, profit, and status per day.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .flexErrnCardStyle()
+    }
+
+    private func sectionCard(_ section: BlockSection) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(sectionHeader(for: section))
+                .font(.headline)
+            ForEach(section.blocks, id: \.id) { block in
+                blockCard(block)
+            }
+        }
+        .flexErrnCardStyle()
+    }
+
+    @ViewBuilder
+    private func blockCard(_ block: Block) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(block.date, style: .date)
+                    .font(.subheadline)
+                Spacer()
+                Text(block.status.displayName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Menu {
+                    Button("Complete") { complete(block) }
+                        .disabled(block.status == .completed)
+                    Button("Mark Cancelled") { cancel(block) }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                }
+            }
+
+            Text("\(blockTimeFormatter.string(from: block.startTime ?? block.date)) – \(blockTimeFormatter.string(from: block.endTime ?? block.date))")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Gross: \(formatCurrency(block.grossPayout))")
+                        .font(.caption2)
+                    Text("Expenses: \(formatCurrency(block.additionalExpensesTotal))")
+                        .font(.caption2)
+                }
+                Spacer()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Miles: \(formatDecimal(block.miles))")
+                        .font(.caption2)
+                    Text("Profit: \(formatCurrency(block.totalProfit))")
+                        .font(.caption2)
+                }
+            }
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var groupedBlocks: [BlockSection] {
@@ -102,13 +143,11 @@ struct LogView: View {
         return section.isFuture ? "\(title) — Upcoming" : title
     }
 
-    private func delete(_ offsets: IndexSet, in section: BlockSection) {
-        for index in offsets {
-            let block = section.blocks[index]
-            block.status = .cancelled
-            logStatusChange(for: block, note: "Marked cancelled from log.")
-            block.updatedAt = Date()
-        }
+    private func cancel(_ block: Block) {
+        guard block.status != .cancelled else { return }
+        block.status = .cancelled
+        logStatusChange(for: block, note: "Marked cancelled from log.")
+        block.updatedAt = Date()
         try? context.save()
     }
 
