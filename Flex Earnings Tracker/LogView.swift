@@ -107,13 +107,21 @@ struct LogView: View {
             HStack {
                 Text(block.date, style: .date)
                     .font(.subheadline)
+                if isUpcoming(block) {
+                    Text("Upcoming")
+                        .font(.caption2)
+                        .padding(4)
+                        .background(Color.accentColor.opacity(0.15))
+                        .foregroundColor(.accentColor)
+                        .cornerRadius(4)
+                }
                 Spacer()
                 Text(block.status.displayName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Menu {
                     Button("Make Active") {
-                        workModeCoordinator.startManually(block)
+                        workModeCoordinator.forceActive(block)
                         tabSelectionState.selectedTab = 0
                     }
                     Button("Mark Cancelled") { cancel(block) }
@@ -175,7 +183,7 @@ struct LogView: View {
     private func sectionHeader(for section: BlockSection) -> String {
         let formatter = Self.sectionFormatter
         let title = formatter.string(from: section.date)
-        return section.isFuture ? "\(title) — Upcoming" : title
+        return title
     }
 
     private func refreshBlocks() {
@@ -201,6 +209,14 @@ struct LogView: View {
     private func logStatusChange(for block: Block, note: String) {
         let entry = AuditEntry(action: .statusChanged, note: note)
         block.auditEntries.append(entry)
+    }
+
+    private func startDate(for block: Block) -> Date {
+        block.startTime ?? block.date
+    }
+
+    private func isUpcoming(_ block: Block) -> Bool {
+        startDate(for: block) > Date()
     }
 
     private func formatCurrency(_ value: Decimal) -> String {

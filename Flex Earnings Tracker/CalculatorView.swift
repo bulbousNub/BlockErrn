@@ -30,6 +30,7 @@ struct CalculatorView: View {
     @State private var showCompleteBlockAlert: Bool = false
     @State private var blockPendingStart: Block? = nil
     @State private var showSwitchBlockAlert: Bool = false
+    @State private var showResetMilesAlert: Bool = false
 
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var mileageTracker: MileageTracker
@@ -102,6 +103,21 @@ struct CalculatorView: View {
         }
     }
 
+    private func requestResetTrackedMiles() {
+        showResetMilesAlert = true
+    }
+
+    private func performResetTrackedMiles() {
+        guard let block = workModeBlock else { return }
+        if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
+            _ = mileageTracker.stopTracking(for: block.id)
+        }
+        block.miles = 0
+        block.routePoints = nil
+        block.updatedAt = Date()
+        context.saveIfNeeded()
+    }
+
     private func completeBlockAfterStoppingGPS(_ block: Block) {
         if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
             handleWorkModeStop()
@@ -146,7 +162,8 @@ struct CalculatorView: View {
                             mileageTracker.requestAuthorization()
                             mileageTracker.startTracking(for: workBlock.id)
                         },
-                        onStopTracking: handleWorkModeStop
+                        onStopTracking: handleWorkModeStop,
+                        onResetTrackedMiles: requestResetTrackedMiles
                     )
                     Button {
                         showCalculatorView()
@@ -268,6 +285,14 @@ struct CalculatorView: View {
             } message: {
                 Text("Stop GPS tracking for the current block and switch to the new one?")
             }
+            .alert("Reset tracked miles", isPresented: $showResetMilesAlert) {
+                Button("Reset") {
+                    performResetTrackedMiles()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("This will stop GPS tracking (if active) and clear the miles recorded for the current block.")
+            }
             .sheet(isPresented: $showWorkModeExpenseSheet) {
                 if let block = workModeBlock {
                     AddExpenseSheet(block: Binding(get: { block }, set: { _ in }))
@@ -327,7 +352,7 @@ struct CalculatorView: View {
                     .font(.title3)
                     .bold()
                     .foregroundColor(.primary)
-                TextField("Gross payout", text: $grossBaseText)
+                TextField("Base Pay", text: $grossBaseText)
                     .keyboardType(.decimalPad)
                     .font(.title3)
                     .bold()
@@ -503,7 +528,7 @@ struct CalculatorView: View {
                     .foregroundStyle(.secondary)
                 Menu {
                     Button("Make Active") {
-                        workModeCoordinator.startManually(block)
+                        workModeCoordinator.forceActive(block)
                         tabSelectionState.selectedTab = 0
                     }
                     if showCompleteAction {
@@ -581,13 +606,23 @@ struct CalculatorView: View {
         let onAddExpense: () -> Void
         let onStartTracking: () -> Void
         let onStopTracking: () -> Void
+        let onResetTrackedMiles: () -> Void
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Work mode")
+                    Text("Work Mode")
                         .font(.headline)
                     Spacer()
+                    Menu {
+                        Button("Reset Tracked Miles") {
+                            onResetTrackedMiles()
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                            .foregroundColor(.primary)
+                    }
                 }
                 WorkModeMapView(routePoints: routePoints)
                     .frame(height: 200)
@@ -609,7 +644,7 @@ struct CalculatorView: View {
 
                     Spacer()
 
-                    Button(isTracking ? "Stop GPS" : "Start GPS") {
+                    Button(isTracking ? "Stop Tracking" : "Start Tracking") {
                         if isTracking {
                             onStopTracking()
                         } else {

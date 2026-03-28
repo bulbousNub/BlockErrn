@@ -102,7 +102,7 @@ struct BlockDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Payout")
                 .font(.headline)
-            DecimalField("Base", prefix: "$", value: Binding(get: { block.grossBase }, set: { block.grossBase = $0; touch() }))
+            DecimalField("Base Pay", prefix: "$", value: Binding(get: { block.grossBase }, set: { block.grossBase = $0; touch() }))
             Toggle("Has tips", isOn: Binding(get: { block.hasTips }, set: { block.hasTips = $0; touch() }))
             if block.hasTips {
                     OptionalDecimalField(title: "Tips", prefix: "$", value: Binding(get: { block.tipsAmount }, set: { block.tipsAmount = $0; touch(); log(AuditAction.tipsUpdated) }))
@@ -116,6 +116,11 @@ struct BlockDetailView: View {
                 Text("Gross payout")
                 Spacer()
                 Text(formatCurrency(block.grossPayout))
+            }
+            HStack {
+                Text("Gross $/hr")
+                Spacer()
+                Text(formatCurrency(grossPerHour()))
             }
         }
         .flexErrnCardStyle()
@@ -260,7 +265,9 @@ struct BlockDetailView: View {
             Text("Totals")
                 .font(.headline)
             HStack { Text("Additional expenses"); Spacer(); Text(formatCurrency(block.additionalExpensesTotal)) }
+            HStack { Text("Mileage deduction"); Spacer(); Text(formatCurrency(block.mileageDeduction)) }
             HStack { Text("Total profit"); Spacer(); Text(formatCurrency(block.totalProfit)) }
+            HStack { Text("Total Profit $/hr"); Spacer(); Text(formatCurrency(profitPerHour())) }
         }
         .flexErrnCardStyle()
     }
@@ -325,6 +332,20 @@ struct BlockDetailView: View {
         f.maximumFractionDigits = 2
         f.minimumFractionDigits = 2
         return f.string(from: value as NSDecimalNumber) ?? "$0.00"
+    }
+
+    private func grossPerHour() -> Decimal {
+        let minutes = max(1, block.durationMinutes)
+        let hours = Decimal(minutes) / 60
+        guard hours > 0 else { return block.grossPayout }
+        return block.grossPayout / hours
+    }
+
+    private func profitPerHour() -> Decimal {
+        let minutes = max(1, block.durationMinutes)
+        let hours = Decimal(minutes) / 60
+        guard hours > 0 else { return block.totalProfit }
+        return block.totalProfit / hours
     }
 
     private func startTimeChanged(to newStart: Date) {
@@ -499,16 +520,36 @@ struct DecimalField: View {
                     .foregroundStyle(.secondary)
             }
             TextField(title, text: Binding(
-                get: { text.isEmpty ? (value as NSDecimalNumber).stringValue : text },
+                get: {
+                    if text.isEmpty {
+                        if value == 0 {
+                            return ""
+                        } else {
+                            return (value as NSDecimalNumber).stringValue
+                        }
+                    } else {
+                        return text
+                    }
+                },
                 set: { newText in
                     text = newText
                     if let d = Decimal(string: newText) { value = d }
                 }
             ))
             .keyboardType(.decimalPad)
-            .onAppear { text = (value as NSDecimalNumber).stringValue }
+            .onAppear {
+                if value != 0 {
+                    text = (value as NSDecimalNumber).stringValue
+                } else {
+                    text = ""
+                }
+            }
             .onChange(of: value) { newValue in
-                text = (newValue as NSDecimalNumber).stringValue
+                if text.isEmpty {
+                    if newValue != 0 {
+                        text = (newValue as NSDecimalNumber).stringValue
+                    }
+                }
             }
         }
     }
@@ -530,7 +571,11 @@ struct MilesField: View {
         TextField(title, text: Binding(
             get: {
                 if text.isEmpty {
-                    return (displayValue as NSDecimalNumber).stringValue
+                    if displayValue > 0 {
+                        return (displayValue as NSDecimalNumber).stringValue
+                    } else {
+                        return ""
+                    }
                 } else {
                     return text
                 }
@@ -544,7 +589,7 @@ struct MilesField: View {
         ))
         .keyboardType(.decimalPad)
         .onChange(of: displayValue) { newValue in
-            if text.isEmpty {
+            if text.isEmpty && newValue > 0 {
                 text = (newValue as NSDecimalNumber).stringValue
             }
         }
