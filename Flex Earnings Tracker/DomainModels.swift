@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import SwiftData
+import CoreLocation
 
 public enum ExpenseCategory: String, Codable, CaseIterable, Identifiable, Hashable {
     case drinks
@@ -53,6 +54,28 @@ public enum AuditAction: String, Codable, CaseIterable {
     case expenseAdded
     case expenseRemoved
     case milesUpdated
+}
+
+public struct RoutePoint: Codable, Hashable {
+    public let latitude: Double
+    public let longitude: Double
+    public let timestamp: Date
+
+    public init(latitude: Double, longitude: Double, timestamp: Date = Date()) {
+        self.latitude = latitude
+        self.longitude = longitude
+        self.timestamp = timestamp
+    }
+
+    public init(location: CLLocation) {
+        self.latitude = location.coordinate.latitude
+        self.longitude = location.coordinate.longitude
+        self.timestamp = location.timestamp
+    }
+
+    public var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
 }
 
 public enum BlockStatus: String, Codable, CaseIterable, Identifiable {
@@ -146,6 +169,7 @@ public final class Block {
     public var irsRateSnapshot: Decimal
     public var startTime: Date?
     public var endTime: Date?
+    public var routePointsData: Data?
 
     public var statusRaw: String
 
@@ -173,7 +197,8 @@ public final class Block {
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         startTime: Date? = nil,
-        endTime: Date? = nil
+        endTime: Date? = nil,
+        routePointsData: Data? = nil
     ) {
         self.id = id
         self.date = date
@@ -191,12 +216,45 @@ public final class Block {
         self.updatedAt = updatedAt
         self.startTime = startTime
         self.endTime = endTime
+        self.routePointsData = routePointsData
     }
 
     public var status: BlockStatus {
         get { BlockStatus(rawValue: statusRaw) ?? .accepted }
         set { statusRaw = newValue.rawValue }
     }
+
+    public var routePoints: [RoutePoint]? {
+        get {
+            guard
+                let data = routePointsData,
+                let decoded = try? Self.routeDecoder.decode([RoutePoint].self, from: data),
+                !decoded.isEmpty
+            else {
+                return nil
+            }
+            return decoded
+        }
+        set {
+            if let points = newValue, !points.isEmpty {
+                routePointsData = try? Self.routeEncoder.encode(points)
+            } else {
+                routePointsData = nil
+            }
+        }
+    }
+
+    private static let routeEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    private static let routeDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
 }
 
 public extension Block {
@@ -213,6 +271,16 @@ public extension Block {
         }
     }
     var totalProfit: Decimal { grossPayout - mileageDeduction - additionalExpensesTotal }
+    var roundedMiles: Decimal {
+        var mutable = miles
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &mutable, 0, .plain)
+        return rounded
+    }
+    var roundedMilesDisplay: String {
+        let value = NSDecimalNumber(decimal: roundedMiles).intValue
+        return "\(value) mi"
+    }
     var scheduledStartDate: Date { startTime ?? date }
     var scheduledEndDate: Date {
         if let explicitEnd = endTime {

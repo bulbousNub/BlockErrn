@@ -1,16 +1,33 @@
 import SwiftUI
 import SwiftData
+import Combine
 
 struct LogView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var blockNavigationState: BlockNavigationState
+    @EnvironmentObject private var workModeCoordinator: WorkModeCoordinator
+    @EnvironmentObject private var tabSelectionState: TabSelectionState
     @Query private var blocks: [Block]
     @State private var showManualAdd: Bool = false
     @State private var refreshCounter: Int = 0
+    @State private var showDetailLink = false
+    @State private var detailBlock: Block? = nil
 
     private let calendar = Calendar.current
 
     var body: some View {
         NavigationStack {
+            NavigationLink(isActive: $showDetailLink) {
+                Group {
+                    if let detailBlock = detailBlock {
+                        BlockDetailView(block: detailBlock)
+                    } else {
+                        EmptyView()
+                    }
+                }
+            } label: {
+                EmptyView()
+            }
             ZStack {
                 FlexErrnTheme.backgroundGradient.ignoresSafeArea()
 
@@ -32,7 +49,16 @@ struct LogView: View {
             .sheet(isPresented: $showManualAdd) {
                 NewBlockSheet()
             }
+            .onReceive(blockNavigationState.$blockToOpen.compactMap { $0 }) { block in
+                openDetail(for: block)
+                blockNavigationState.blockToOpen = nil
+            }
         }
+    }
+
+    private func openDetail(for block: Block) {
+        detailBlock = block
+        showDetailLink = true
     }
 
     private var headerCard: some View {
@@ -86,8 +112,10 @@ struct LogView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Menu {
-                    Button("Complete") { complete(block) }
-                        .disabled(block.status == .completed)
+                    Button("Make Active") {
+                        workModeCoordinator.startManually(block)
+                        tabSelectionState.selectedTab = 0
+                    }
                     Button("Mark Cancelled") { cancel(block) }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -108,7 +136,7 @@ struct LogView: View {
                 }
                 Spacer()
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Miles: \(formatDecimal(block.miles))")
+                    Text("Miles: \(block.roundedMilesDisplay)")
                         .font(.caption2)
                     Text("Profit: \(formatCurrency(block.totalProfit))")
                         .font(.caption2)

@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import SwiftData
 
 final class WorkModeCoordinator: ObservableObject {
@@ -10,6 +11,9 @@ final class WorkModeCoordinator: ObservableObject {
         blockToStart = block
     }
 
+    func forceActive(_ block: Block) {
+        forcedActiveBlockIDs.insert(block.id)
+    }
     func remove(_ block: Block) {
         forcedActiveBlockIDs.remove(block.id)
     }

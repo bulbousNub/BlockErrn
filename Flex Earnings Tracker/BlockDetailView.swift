@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CoreLocation
+import MapKit
 
 struct BlockDetailView: View {
     @Environment(\.modelContext) private var context
@@ -14,6 +15,8 @@ struct BlockDetailView: View {
     @State private var showCompletionPrompt = false
     @Environment(\.colorScheme) private var colorScheme
 
+    private var showLegacyTrackingControls: Bool { false }
+
     var body: some View {
         ZStack {
             FlexErrnTheme.backgroundGradient.ignoresSafeArea()
@@ -22,6 +25,7 @@ struct BlockDetailView: View {
                     overviewCard
                     payoutCard
                     scheduleCard
+                    routeCard
                     mileageCard
                     expensesCard
                     totalsCard
@@ -123,19 +127,28 @@ struct BlockDetailView: View {
                 .font(.headline)
             DatePicker("Start time", selection: Binding(get: { block.startTime ?? block.date }, set: { startTimeChanged(to: $0) }), displayedComponents: .hourAndMinute)
             DatePicker("End time", selection: Binding(get: { block.endTime ?? block.date }, set: { endTimeChanged(to: $0) }), displayedComponents: .hourAndMinute)
-            Text("\(blockTimeFormatter.string(from: block.startTime ?? block.date)) – \(blockTimeFormatter.string(from: block.endTime ?? block.date))")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .flexErrnCardStyle()
+    }
+
+    @ViewBuilder
+    private var routeCard: some View {
+        if let routePoints = block.routePoints, !routePoints.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Route")
+                    .font(.headline)
+                RouteMapView(routePoints: routePoints)
+                    .frame(height: 200)
+            }
+            .flexErrnCardStyle()
+        }
     }
 
     private var mileageCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Mileage")
                 .font(.headline)
-            DecimalField("Miles", value: Binding(get: { block.miles }, set: { block.miles = $0; touch(); log(AuditAction.milesUpdated) }))
+            MilesField("Miles", value: Binding(get: { block.miles }, set: { block.miles = $0; touch(); log(AuditAction.milesUpdated) }), displayValue: block.roundedMiles)
             HStack {
                 Text("Rate snapshot")
                 Spacer()
@@ -157,28 +170,36 @@ struct BlockDetailView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            HStack(spacing: 12) {
-                Button {
-                    showStartConfirmation = true
-                } label: {
-                    Label("Start tracking miles", systemImage: "location")
-                        .foregroundColor(startButtonColor)
-                }
-                .tint(startButtonTint)
-                .disabled(mileageTracker.isTracking || !mileageTracker.canStartTracking)
-
-                Button {
-                    if let roundedMiles = mileageTracker.stopTracking(for: block.id) {
-                        block.miles = Decimal(roundedMiles)
-                        touch()
-                        promptCompletion()
+            if showLegacyTrackingControls {
+                HStack(spacing: 12) {
+                    Button {
+                        showStartConfirmation = true
+                    } label: {
+                        Label("Start tracking miles", systemImage: "location")
+                            .foregroundColor(startButtonColor)
                     }
-                } label: {
-                    Label("Stop tracking", systemImage: "location.slash")
-                        .foregroundColor(buttonTextColor)
+                    .tint(startButtonTint)
+                    .disabled(mileageTracker.isTracking || !mileageTracker.canStartTracking)
+
+                    Button {
+                        if let (sessionMiles, routePoints) = mileageTracker.stopTracking(for: block.id) {
+                            block.miles += Decimal(sessionMiles)
+                            if var existingPoints = block.routePoints {
+                                existingPoints.append(contentsOf: routePoints)
+                                block.routePoints = existingPoints
+                            } else {
+                                block.routePoints = routePoints
+                            }
+                            touch()
+                            promptCompletion()
+                        }
+                    } label: {
+                        Label("Stop tracking", systemImage: "location.slash")
+                            .foregroundColor(buttonTextColor)
+                    }
+                    .tint(buttonTextColor)
+                    .disabled(!(mileageTracker.isTracking && mileageTracker.currentBlockID == block.id))
                 }
-                .tint(buttonTextColor)
-                .disabled(!(mileageTracker.isTracking && mileageTracker.currentBlockID == block.id))
             }
         }
         .flexErrnCardStyle()
@@ -186,8 +207,20 @@ struct BlockDetailView: View {
 
     private var expensesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Expenses")
-                .font(.headline)
+            HStack {
+                Text("Expenses")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    showAddExpense = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .tint(buttonTextColor)
+                .buttonBorderShape(.circle)
+            }
             if block.expenses.isEmpty {
                 Text("No expenses yet")
                     .foregroundStyle(.secondary)
@@ -217,12 +250,6 @@ struct BlockDetailView: View {
                     }
                 }
             }
-            Button("Add Expense") {
-                showAddExpense = true
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(buttonTextColor)
-            .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity)
         .flexErrnCardStyle()
@@ -449,6 +476,7 @@ struct AddExpenseSheet: View {
             selectedCategoryID = defaultCategoryID
         }
     }
+
 }
 
 struct DecimalField: View {
@@ -480,6 +508,43 @@ struct DecimalField: View {
             .keyboardType(.decimalPad)
             .onAppear { text = (value as NSDecimalNumber).stringValue }
             .onChange(of: value) { newValue in
+                text = (newValue as NSDecimalNumber).stringValue
+            }
+        }
+    }
+}
+
+struct MilesField: View {
+    let title: String
+    @Binding var value: Decimal
+    let displayValue: Decimal
+    @State private var text: String = ""
+
+    init(_ title: String, value: Binding<Decimal>, displayValue: Decimal) {
+        self.title = title
+        self._value = value
+        self.displayValue = displayValue
+    }
+
+    var body: some View {
+        TextField(title, text: Binding(
+            get: {
+                if text.isEmpty {
+                    return (displayValue as NSDecimalNumber).stringValue
+                } else {
+                    return text
+                }
+            },
+            set: { newText in
+                text = newText
+                if let d = Decimal(string: newText) {
+                    value = d
+                }
+            }
+        ))
+        .keyboardType(.decimalPad)
+        .onChange(of: displayValue) { newValue in
+            if text.isEmpty {
                 text = (newValue as NSDecimalNumber).stringValue
             }
         }
@@ -556,5 +621,90 @@ struct LiquidNotesField: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
             )
+    }
+}
+
+private struct RouteMapView: UIViewRepresentable {
+    let routePoints: [RoutePoint]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView()
+        mapView.delegate = context.coordinator
+        mapView.showsCompass = false
+        mapView.showsUserLocation = false
+        mapView.isRotateEnabled = false
+        mapView.isPitchEnabled = false
+        mapView.layer.cornerRadius = 16
+        return mapView
+    }
+
+    func updateUIView(_ mapView: MKMapView, context: Context) {
+        mapView.removeOverlays(mapView.overlays)
+        mapView.removeAnnotations(mapView.annotations)
+
+        let coords = routePoints.map(\.coordinate)
+        guard !coords.isEmpty else {
+            let defaultCoordinate = CLLocationCoordinate2D(latitude: 37.3349, longitude: -122.00902)
+            mapView.region = MKCoordinateRegion(center: defaultCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+            return
+        }
+
+        let region = regionForCoordinates(coords)
+        mapView.setRegion(region, animated: false)
+
+        if coords.count > 1 {
+            let polyline = MKPolyline(coordinates: coords, count: coords.count)
+            mapView.addOverlay(polyline)
+        }
+
+        if let first = coords.first {
+            let annotation = MKPointAnnotation()
+            annotation.coordinate = first
+            annotation.title = "Start"
+            mapView.addAnnotation(annotation)
+        }
+
+        if let last = coords.last, regionContains(region, coordinate: last) {
+            let annotation = MKPointAnnotation()
+            annotation.coordinate = last
+            annotation.title = "End"
+            mapView.addAnnotation(annotation)
+        }
+    }
+
+    private func regionForCoordinates(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
+        let latitudes = coords.map(\.latitude)
+        let longitudes = coords.map(\.longitude)
+        let maxLat = latitudes.max() ?? 0
+        let minLat = latitudes.min() ?? 0
+        let maxLong = longitudes.max() ?? 0
+        let minLong = longitudes.min() ?? 0
+        let center = CLLocationCoordinate2D(latitude: (maxLat + minLat) / 2, longitude: (maxLong + minLong) / 2)
+        let span = MKCoordinateSpan(latitudeDelta: max(0.005, (maxLat - minLat) * 1.5), longitudeDelta: max(0.005, (maxLong - minLong) * 1.5))
+        return MKCoordinateRegion(center: center, span: span)
+    }
+
+    private func regionContains(_ region: MKCoordinateRegion, coordinate: CLLocationCoordinate2D) -> Bool {
+        let latInRange = coordinate.latitude >= region.center.latitude - region.span.latitudeDelta/2 &&
+            coordinate.latitude <= region.center.latitude + region.span.latitudeDelta/2
+        let lonInRange = coordinate.longitude >= region.center.longitude - region.span.longitudeDelta/2 &&
+            coordinate.longitude <= region.center.longitude + region.span.longitudeDelta/2
+        return latInRange && lonInRange
+    }
+
+    fileprivate class Coordinator: NSObject, MKMapViewDelegate {
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let polyline = overlay as? MKPolyline {
+                let renderer = MKPolylineRenderer(polyline: polyline)
+                renderer.strokeColor = UIColor.systemBlue
+                renderer.lineWidth = 4
+                return renderer
+            }
+            return MKOverlayRenderer(overlay: overlay)
+        }
     }
 }
