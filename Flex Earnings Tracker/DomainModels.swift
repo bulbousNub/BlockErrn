@@ -170,6 +170,8 @@ public final class Block {
     public var startTime: Date?
     public var endTime: Date?
     public var routePointsData: Data?
+    public var userStartTime: Date?
+    public var userCompletionTime: Date?
 
     public var statusRaw: String
 
@@ -198,7 +200,9 @@ public final class Block {
         updatedAt: Date = Date(),
         startTime: Date? = nil,
         endTime: Date? = nil,
-        routePointsData: Data? = nil
+        routePointsData: Data? = nil,
+        userStartTime: Date? = nil,
+        userCompletionTime: Date? = nil
     ) {
         self.id = id
         self.date = date
@@ -217,6 +221,8 @@ public final class Block {
         self.startTime = startTime
         self.endTime = endTime
         self.routePointsData = routePointsData
+        self.userStartTime = userStartTime
+        self.userCompletionTime = userCompletionTime
     }
 
     public var status: BlockStatus {

@@ -123,6 +123,7 @@ struct CalculatorView: View {
         if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
             handleWorkModeStop()
         }
+        block.userCompletionTime = Date()
         complete(block)
         withAnimation {
             workModeBlock = nil
@@ -145,6 +146,8 @@ struct CalculatorView: View {
             showSwitchBlockAlert = true
         } else {
             workModeCoordinator.forceActive(block)
+            block.userStartTime = Date()
+            try? context.saveIfNeeded()
             enterWorkMode(block)
         }
     }

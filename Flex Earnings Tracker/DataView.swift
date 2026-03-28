@@ -283,7 +283,12 @@ struct DataView: View {
                         newValue: audit.newValue,
                         note: audit.note
                     )
-                }
+                },
+                startTime: block.startTime,
+                endTime: block.endTime,
+                routePoints: block.routePoints,
+                userStartTime: block.userStartTime,
+                userCompletionTime: block.userCompletionTime
             )
         }
 
@@ -330,6 +335,13 @@ struct DataView: View {
                 createdAt: blockPayload.createdAt,
                 updatedAt: blockPayload.updatedAt
             )
+
+            block.startTime = blockPayload.startTime
+            block.endTime = blockPayload.endTime
+            block.routePoints = blockPayload.routePoints
+
+            block.userStartTime = blockPayload.userStartTime
+            block.userCompletionTime = blockPayload.userCompletionTime
 
             for expensePayload in blockPayload.expenses {
                 let category = ExpenseCategory(rawValue: expensePayload.categoryRaw) ?? .drinks
@@ -430,6 +442,11 @@ private struct BlockPayload: Codable {
     let updatedAt: Date
     let expenses: [ExpensePayload]
     let auditEntries: [AuditEntryPayload]
+    let startTime: Date?
+    let endTime: Date?
+    let routePoints: [RoutePoint]?
+    let userStartTime: Date?
+    let userCompletionTime: Date?
 }
 
 private struct ExpensePayload: Codable {

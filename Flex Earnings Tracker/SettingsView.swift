@@ -57,7 +57,6 @@ struct SettingsView: View {
                                 }
                             }
 
-                        dataCard
                     }
                     .padding()
                     .padding(.bottom, 32)

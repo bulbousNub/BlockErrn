@@ -132,9 +132,29 @@ struct BlockDetailView: View {
                 .font(.headline)
             DatePicker("Start time", selection: Binding(get: { block.startTime ?? block.date }, set: { startTimeChanged(to: $0) }), displayedComponents: .hourAndMinute)
             DatePicker("End time", selection: Binding(get: { block.endTime ?? block.date }, set: { endTimeChanged(to: $0) }), displayedComponents: .hourAndMinute)
+            scheduleRow("User Start Time", block.userStartTime)
+            scheduleRow("User Completion Time", block.userCompletionTime)
         }
         .flexErrnCardStyle()
     }
+
+    private func scheduleRow(_ title: String, _ date: Date?) -> some View {
+        HStack {
+            Text(title)
+                .font(.subheadline)
+            Spacer()
+            Text(date.map { Self.scheduleTimeFormatter.string(from: $0) } ?? "Not recorded")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+        }
+    }
+
+    private static let scheduleTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     @ViewBuilder
     private var routeCard: some View {
