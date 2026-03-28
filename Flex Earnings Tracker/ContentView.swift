@@ -38,11 +38,17 @@ struct ContentView: View {
                     }
                     .tag(2)
 
+                DataView()
+                    .tabItem {
+                        Label("Data", systemImage: "externaldrive.connected.to.line.below")
+                    }
+                    .tag(3)
+
                 SettingsView()
                     .tabItem {
                         Label("Settings", systemImage: "gear")
                     }
-                    .tag(3)
+                    .tag(4)
             }
 
             if needsOnboarding, let settingsInstance = activeSettings {
