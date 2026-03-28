@@ -2,9 +2,11 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @State private var selectedTab: Int = 0
+    @StateObject private var tabSelectionState = TabSelectionState()
     @Query private var settings: [AppSettings]
     @State private var colorSchemeOverride: ColorScheme? = nil
+    @StateObject private var blockNavigationState = BlockNavigationState()
+    @StateObject private var workModeCoordinator = WorkModeCoordinator()
 
     private var activeSettings: AppSettings? {
         settings.first
@@ -17,8 +19,8 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            TabView(selection: $selectedTab) {
-                CalculatorView(selectedTab: $selectedTab)
+            TabView(selection: $tabSelectionState.selectedTab) {
+                CalculatorView()
                     .tabItem {
                         Label("Home", systemImage: "house")
                     }
@@ -51,6 +53,9 @@ struct ContentView: View {
             }
         }
         .environmentObject(MileageTracker.shared)
+        .environmentObject(blockNavigationState)
+        .environmentObject(workModeCoordinator)
+        .environmentObject(tabSelectionState)
         .preferredColorScheme(colorSchemeOverride)
         .task(id: activeSettings?.id) {
             colorSchemeOverride = activeSettings?.preferredAppearance.colorScheme
@@ -65,7 +70,14 @@ struct ContentView: View {
 }
 
 #Preview {
+    let blockNavigationState = BlockNavigationState()
+    let workModeCoordinator = WorkModeCoordinator()
+    let tabSelectionState = TabSelectionState()
+
     ContentView()
         .modelContainer(for: [Block.self, Expense.self, AuditEntry.self, AppSettings.self], inMemory: true)
         .environmentObject(MileageTracker.shared)
+        .environmentObject(blockNavigationState)
+        .environmentObject(workModeCoordinator)
+        .environmentObject(tabSelectionState)
 }

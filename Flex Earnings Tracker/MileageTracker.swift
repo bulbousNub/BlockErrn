@@ -14,6 +14,7 @@ final class MileageTracker: NSObject, ObservableObject {
     @Published private(set) var currentBlockID: UUID?
 
     private var lastLocation: CLLocation?
+    private var routePoints: [RoutePoint] = []
 
     private let backgroundTrackingAllowed: Bool
     private var pendingAlwaysAuthorizationRequest: Bool = false
@@ -72,11 +73,12 @@ final class MileageTracker: NSObject, ObservableObject {
         currentBlockID = blockID
         distanceMeters = 0
         lastLocation = nil
+        routePoints = []
         isTracking = true
         manager.startUpdatingLocation()
     }
 
-    func stopTracking(for blockID: UUID) -> Int? {
+    func stopTracking(for blockID: UUID) -> (Double, [RoutePoint])? {
         guard isTracking, currentBlockID == blockID else { return nil }
         manager.stopUpdatingLocation()
         isTracking = false
@@ -84,7 +86,11 @@ final class MileageTracker: NSObject, ObservableObject {
         distanceMeters = 0
         lastLocation = nil
         currentBlockID = nil
-        return Int(miles.rounded())
+        return (miles, routePoints)
+    }
+
+    var currentRoutePoints: [RoutePoint] {
+        routePoints
     }
 }
 
@@ -109,6 +115,7 @@ extension MileageTracker: CLLocationManagerDelegate {
                 distanceMeters += location.distance(from: last)
             }
             lastLocation = location
+            routePoints.append(RoutePoint(location: location))
         }
     }
 

@@ -1,16 +1,33 @@
 import SwiftUI
 import SwiftData
+import Combine
 
 struct LogView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var blockNavigationState: BlockNavigationState
+    @EnvironmentObject private var workModeCoordinator: WorkModeCoordinator
+    @EnvironmentObject private var tabSelectionState: TabSelectionState
     @Query private var blocks: [Block]
     @State private var showManualAdd: Bool = false
     @State private var refreshCounter: Int = 0
+    @State private var showDetailLink = false
+    @State private var detailBlock: Block? = nil
 
     private let calendar = Calendar.current
 
     var body: some View {
         NavigationStack {
+            NavigationLink(isActive: $showDetailLink) {
+                Group {
+                    if let detailBlock = detailBlock {
+                        BlockDetailView(block: detailBlock)
+                    } else {
+                        EmptyView()
+                    }
+                }
+            } label: {
+                EmptyView()
+            }
             ZStack {
                 FlexErrnTheme.backgroundGradient.ignoresSafeArea()
 
@@ -32,7 +49,16 @@ struct LogView: View {
             .sheet(isPresented: $showManualAdd) {
                 NewBlockSheet()
             }
+            .onReceive(blockNavigationState.$blockToOpen.compactMap { $0 }) { block in
+                openDetail(for: block)
+                blockNavigationState.blockToOpen = nil
+            }
         }
+    }
+
+    private func openDetail(for block: Block) {
+        detailBlock = block
+        showDetailLink = true
     }
 
     private var headerCard: some View {
@@ -81,13 +107,23 @@ struct LogView: View {
             HStack {
                 Text(block.date, style: .date)
                     .font(.subheadline)
+                if isUpcoming(block) {
+                    Text("Upcoming")
+                        .font(.caption2)
+                        .padding(4)
+                        .background(Color.accentColor.opacity(0.15))
+                        .foregroundColor(.accentColor)
+                        .cornerRadius(4)
+                }
                 Spacer()
                 Text(block.status.displayName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Menu {
-                    Button("Complete") { complete(block) }
-                        .disabled(block.status == .completed)
+                    Button("Make Active") {
+                        workModeCoordinator.forceActive(block)
+                        tabSelectionState.selectedTab = 0
+                    }
                     Button("Mark Cancelled") { cancel(block) }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -108,7 +144,7 @@ struct LogView: View {
                 }
                 Spacer()
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Miles: \(formatDecimal(block.miles))")
+                    Text("Miles: \(block.roundedMilesDisplay)")
                         .font(.caption2)
                     Text("Profit: \(formatCurrency(block.totalProfit))")
                         .font(.caption2)
@@ -147,7 +183,7 @@ struct LogView: View {
     private func sectionHeader(for section: BlockSection) -> String {
         let formatter = Self.sectionFormatter
         let title = formatter.string(from: section.date)
-        return section.isFuture ? "\(title) — Upcoming" : title
+        return title
     }
 
     private func refreshBlocks() {
@@ -173,6 +209,14 @@ struct LogView: View {
     private func logStatusChange(for block: Block, note: String) {
         let entry = AuditEntry(action: .statusChanged, note: note)
         block.auditEntries.append(entry)
+    }
+
+    private func startDate(for block: Block) -> Date {
+        block.startTime ?? block.date
+    }
+
+    private func isUpcoming(_ block: Block) -> Bool {
+        startDate(for: block) > Date()
     }
 
     private func formatCurrency(_ value: Decimal) -> String {
