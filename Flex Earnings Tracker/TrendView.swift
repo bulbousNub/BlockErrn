@@ -25,10 +25,9 @@ struct TrendView: View {
                                 grossCharts
                             }
 
-                            TrendSectionCard(title: "Recent activity") {
-                                recentSections
-                            }
-                        }
+                        TrendPreviewCard(title: "Recent Weeks", stats: weeklyStats, frequency: .week, limit: 3)
+                        TrendPreviewCard(title: "Recent Months", stats: monthlyStats, frequency: .month, limit: 3)
+                    }
                         .padding()
                         .padding(.bottom, 32)
                     }
@@ -69,21 +68,26 @@ struct TrendView: View {
     @State private var highlightedMonth: PeriodStats? = nil
 
     private var header: some View {
-        HStack {
+        HStack(alignment: .top) {
             Text("Earnings & Mileage")
                 .font(.title2)
                 .bold()
             Spacer()
-            Text("\(blocks.count) tracked • \(scheduledBlocksThisWeek.count) upcoming")
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("\(upcomingBlocksCount) Upcoming Blocks")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                Text("\(blocks.count) Total Blocks Tracked")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
     private var earningsAndMileageCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            metricGrid
+        metricGrid
         }
         .flexErrnCardStyle()
     }
@@ -92,7 +96,6 @@ struct TrendView: View {
         LazyVGrid(columns: [GridItem(.flexible(minimum: 140), spacing: 12), GridItem(.flexible(minimum: 140), spacing: 12)], spacing: 12) {
             weeklyMetricCards
             monthlyMetricCards
-            scheduledMetricCards
         }
         .padding(.top, 8)
     }
@@ -114,10 +117,6 @@ struct TrendView: View {
     }
 
     @ViewBuilder
-    private var scheduledMetricCards: some View {
-        MetricCard(title: "Blocks Scheduled\nThis Week", value: "\(scheduledBlocksThisWeek.count)", caption: "Accepted shifts")
-        MetricCard(title: "$ Scheduled\nThis Week", value: formatCurrency(scheduledGrossThisWeek), caption: "Planned gross")
-    }
 
     private var grossCharts: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -266,13 +265,6 @@ struct TrendView: View {
         })
     }
 
-    private var recentSections: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            TrendPreviewSection(title: "Recent Weeks", stats: weeklyStats, frequency: .week, limit: 3)
-            TrendPreviewSection(title: "Recent Months", stats: monthlyStats, frequency: .month, limit: 3)
-        }
-    }
-
     private var weeklyStats: [PeriodStats] {
         periodStats(for: .week)
     }
@@ -357,34 +349,48 @@ struct TrendView: View {
         .sorted(by: { $0.start > $1.start })
     }
 
-    private struct TrendPreviewSection: View {
+    private struct TrendPreviewCard: View {
         let title: String
         let stats: [PeriodStats]
         let frequency: TrendFrequency
         let limit: Int
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(title)
                         .font(.headline)
                     Spacer()
                     if !stats.isEmpty {
-                        NavigationLink(destination: TrendListView(stats: stats, frequency: frequency)) {
-                            HStack(spacing: 4) {
-                                Text("See all")
-                                Image(systemName: "chevron.right")
-                                    .font(.footnote)
-                            }
-                            .font(.caption)
-                        }
+                        ThemedSeeAllLink(destination: TrendListView(stats: stats, frequency: frequency))
                     }
                 }
                 ForEach(stats.prefix(limit)) { stat in
                     NavigationLink(destination: TrendDetailView(stats: stat, frequency: frequency)) {
                         TrendSummaryRow(stats: stat, frequency: frequency)
+                            .flexErrnCardStyle()
                     }
+                    .buttonStyle(.plain)
                 }
+            }
+            .flexErrnCardStyle()
+        }
+    }
+
+    private struct ThemedSeeAllLink<Destination: View>: View {
+        let destination: Destination
+        var body: some View {
+            NavigationLink(destination: destination) {
+                HStack(spacing: 4) {
+                    Text("See all")
+                    Image(systemName: "chevron.right")
+                        .font(.footnote)
+                }
+                .font(.caption)
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(FlexErrnTheme.backgroundGradient, in: Capsule())
             }
         }
     }
@@ -394,13 +400,20 @@ struct TrendView: View {
         let frequency: TrendFrequency
 
         var body: some View {
-            List {
-                Section("Summary") {
-                    ForEach(stats) { stat in
-                        NavigationLink(destination: TrendDetailView(stats: stat, frequency: frequency)) {
-                            TrendSummaryRow(stats: stat, frequency: frequency)
+            ZStack {
+                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        ForEach(stats) { stat in
+                            NavigationLink(destination: TrendDetailView(stats: stat, frequency: frequency)) {
+                                TrendSummaryRow(stats: stat, frequency: frequency)
+                                    .flexErrnCardStyle()
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
+                    .padding()
+                    .padding(.bottom, 32)
                 }
             }
             .navigationTitle(frequency == .week ? "Weekly History" : "Monthly History")
@@ -417,6 +430,13 @@ struct TrendView: View {
 
     private var scheduledGrossThisWeek: Decimal {
         scheduledBlocksThisWeek.reduce(0) { $0 + $1.grossPayout }
+    }
+
+    private var upcomingBlocksCount: Int {
+        let now = Date()
+        return blocks.filter { block in
+            block.status == .accepted && blockStart(block) > now
+        }.count
     }
 
     private func blockStart(_ block: Block) -> Date {

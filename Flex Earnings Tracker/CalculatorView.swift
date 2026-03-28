@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import MapKit
+import CoreLocation
 
 struct CalculatorView: View {
 
@@ -675,6 +676,7 @@ struct CalculatorView: View {
             mapView.isRotateEnabled = false
             mapView.isPitchEnabled = false
             mapView.layer.cornerRadius = 16
+            context.coordinator.attach(mapView)
             return mapView
         }
 
@@ -683,8 +685,12 @@ struct CalculatorView: View {
             mapView.removeAnnotations(mapView.annotations)
 
             guard let coords = routePoints?.map({ $0.coordinate }), !coords.isEmpty else {
-                let defaultCoordinate = CLLocationCoordinate2D(latitude: 37.3349, longitude: -122.00902)
-                mapView.region = MKCoordinateRegion(center: defaultCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+                if let location = context.coordinator.lastKnownLocation {
+                    mapView.setRegion(Self.regionForCoordinate(location.coordinate), animated: false)
+                } else {
+                    let defaultCoordinate = CLLocationCoordinate2D(latitude: 37.3349, longitude: -122.00902)
+                    mapView.region = MKCoordinateRegion(center: defaultCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+                }
                 return
             }
 
@@ -723,6 +729,10 @@ struct CalculatorView: View {
             return MKCoordinateRegion(center: center, span: span)
         }
 
+        private static func regionForCoordinate(_ coordinate: CLLocationCoordinate2D) -> MKCoordinateRegion {
+            MKCoordinateRegion(center: coordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+        }
+
         private func regionContains(_ region: MKCoordinateRegion, coordinate: CLLocationCoordinate2D) -> Bool {
             let latInRange = coordinate.latitude >= region.center.latitude - region.span.latitudeDelta/2 &&
                 coordinate.latitude <= region.center.latitude + region.span.latitudeDelta/2
@@ -731,7 +741,24 @@ struct CalculatorView: View {
             return latInRange && lonInRange
         }
 
-        fileprivate class Coordinator: NSObject, MKMapViewDelegate {
+        fileprivate class Coordinator: NSObject, MKMapViewDelegate, CLLocationManagerDelegate {
+            private let locationManager = CLLocationManager()
+            private weak var mapView: MKMapView?
+            var lastKnownLocation: CLLocation?
+
+            override init() {
+                super.init()
+                locationManager.delegate = self
+                locationManager.desiredAccuracy = kCLLocationAccuracyBest
+                locationManager.requestWhenInUseAuthorization()
+                locationManager.requestLocation()
+            }
+
+            func attach(_ mapView: MKMapView) {
+                self.mapView = mapView
+                locationManager.requestLocation()
+            }
+
             func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
                 if let polyline = overlay as? MKPolyline {
                     let renderer = MKPolylineRenderer(polyline: polyline)
@@ -740,6 +767,17 @@ struct CalculatorView: View {
                     return renderer
                 }
                 return MKOverlayRenderer(overlay: overlay)
+            }
+
+            func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+                guard let location = locations.last else { return }
+                lastKnownLocation = location
+                guard mapView?.overlays.isEmpty ?? true else { return }
+                mapView?.setRegion(WorkModeMapView.regionForCoordinate(location.coordinate), animated: true)
+            }
+
+            func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+                // ignore
             }
         }
     }
