@@ -17,6 +17,8 @@ struct DataView: View {
     @State private var dataMessageStyle: DataMessageStyle = .info
     @State private var backupMessage: String?
     @State private var backupMessageStyle: DataMessageStyle = .info
+    @State private var importMessage: String?
+    @State private var importMessageStyle: DataMessageStyle = .info
     @State private var lastBackupDate: Date?
 
     var body: some View {
@@ -28,6 +30,7 @@ struct DataView: View {
                 VStack(spacing: 24) {
                     dataCard
                     backupTile
+                    importTile
                 }
                     .padding()
                     .padding(.bottom, 32)
@@ -116,6 +119,46 @@ struct DataView: View {
                     .foregroundStyle(backupMessageStyle.color)
                     .multilineTextAlignment(.center)
             }
+            }
+            .flexErrnCardStyle()
+    }
+
+    private var importTile: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Import")
+                        .font(.title3)
+                        .bold()
+                    Text("Restore a previously exported FlexErrn backup whenever you switch phones, reinstall, or need to recover your blocks and settings.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "square.and.arrow.down")
+                    .font(.system(size: 36))
+                    .foregroundColor(.accentColor)
+            }
+
+            Button {
+                showImporter = true
+            } label: {
+                Label("Import FlexErrn Backup", systemImage: "square.and.arrow.down")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.accentColor)
+
+            if let message = importMessage {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(importMessageStyle.color)
+                    .multilineTextAlignment(.center)
+            }
         }
         .flexErrnCardStyle()
     }
@@ -140,15 +183,6 @@ struct DataView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-
-            Button {
-                showImporter = true
-            } label: {
-                Label("Import FlexErrn Backup", systemImage: "square.and.arrow.down")
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.accentColor)
 
             Button {
                 csvDocument = CSVDocument(text: makeCSVText())
@@ -248,12 +282,12 @@ struct DataView: View {
                 decoder.dateDecodingStrategy = .iso8601
                 let payload = try decoder.decode(BackupPayload.self, from: data)
                 try importBackup(payload)
-                setDataMessage("Imported backup from \(url.lastPathComponent)", style: .success)
+                setImportMessage("Imported backup from \(url.lastPathComponent)", style: .success)
             } catch {
-                setDataMessage("Import failed: \(error.localizedDescription)", style: .error)
+                setImportMessage("Import failed: \(error.localizedDescription)", style: .error)
             }
         case .failure(let error):
-            setDataMessage("Import cancelled: \(error.localizedDescription)", style: .info)
+            setImportMessage("Import cancelled: \(error.localizedDescription)", style: .info)
         }
     }
 
@@ -332,6 +366,11 @@ struct DataView: View {
     private func setDataMessage(_ text: String, style: DataMessageStyle) {
         dataMessage = text
         dataMessageStyle = style
+    }
+
+    private func setImportMessage(_ text: String, style: DataMessageStyle) {
+        importMessage = text
+        importMessageStyle = style
     }
 
     private func clearAllData() {
