@@ -82,8 +82,26 @@ struct BlockDetailView: View {
                 .tint(buttonTextColor)
             }
             LiquidNotesField(placeholder: "Notes", text: Binding(get: { block.notes ?? "" }, set: { block.notes = $0; touch() }))
+            timestampRow
         }
         .flexErrnCardStyle()
+    }
+
+    private var timestampRow: some View {
+        VStack(spacing: 4) {
+            HStack {
+                Spacer()
+                Text("Created at \(Self.blockTimestampFormatter.string(from: block.createdAt))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Spacer()
+                Text("Last Modified at \(Self.blockTimestampFormatter.string(from: block.updatedAt))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var payoutCard: some View {
@@ -385,6 +403,12 @@ struct BlockDetailView: View {
     private var categoryDescriptors: [ExpenseCategoryDescriptor] {
         settings.first?.expenseCategoryDescriptors ?? ExpenseCategoryDescriptor.defaultList
     }
+
+    private static let blockTimestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM d, yyyy 'at' h:mm a"
+        return formatter
+    }()
 
     private func categoryName(for raw: String) -> String {
         categoryDescriptors.first(where: { $0.id == raw })?.name ?? raw.capitalized
