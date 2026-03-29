@@ -121,7 +121,7 @@ struct DataView: View {
             }
             .fileImporter(
                 isPresented: $showImporter,
-                allowedContentTypes: [.json],
+                allowedContentTypes: [.json, .zip],
                 allowsMultipleSelection: false
             ) { result in
                 handleImport(result)
@@ -391,7 +391,7 @@ struct DataView: View {
                         url.stopAccessingSecurityScopedResource()
                     }
                 }
-                let data = try Data(contentsOf: url)
+                let data = try readBackupData(from: url)
                 let decoder = JSONDecoder()
                 decoder.dateDecodingStrategy = .iso8601
                 let payload = try decoder.decode(BackupPayload.self, from: data)
@@ -408,7 +408,7 @@ struct DataView: View {
     private func defaultBackupFilename() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "FlexEarningsBackup-\(formatter.string(from: Date())).json"
+        return "FlexEarningsBackup-\(formatter.string(from: Date())).zip"
     }
 
     private func defaultCSVFilename() -> String {
@@ -457,6 +457,21 @@ struct DataView: View {
 
         let combined = ([headerRow] + rows).joined(separator: "\n")
         return combined
+    }
+
+    private func readBackupData(from url: URL) throws -> Data {
+        if url.pathExtension.lowercased() == "zip" {
+            guard let archive = Archive(url: url, accessMode: .read),
+                  let entry = archive[Self.backupJSONFilename] else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            var data = Data()
+            _ = try archive.extract(entry) { chunk in
+                data.append(chunk)
+            }
+            return data
+        }
+        return try Data(contentsOf: url)
     }
 
     private func fieldValue(for field: ExportField, context: BlockCSVContext, formatter: DateFormatter) -> String {
@@ -644,9 +659,49 @@ struct DataView: View {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(payload)
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(defaultBackupFilename())
-        try data.write(to: url, options: .atomic)
-        return url
+        let tempDir = FileManager.default.temporaryDirectory
+        let jsonURL = tempDir.appendingPathComponent(Self.backupJSONFilename)
+        try data.write(to: jsonURL, options: .atomic)
+        let zipURL = tempDir.appendingPathComponent(defaultBackupFilename())
+        if FileManager.default.fileExists(atPath: zipURL.path) {
+            try FileManager.default.removeItem(at: zipURL)
+        }
+        guard let archive = Archive(url: zipURL, accessMode: .create) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        try archive.addEntry(with: Self.backupJSONFilename, relativeTo: tempDir)
+        try addReceiptFiles(to: archive, payload: payload, tempDir: tempDir)
+        try FileManager.default.removeItem(at: jsonURL)
+        return zipURL
+    }
+    
+    private func addReceiptFiles(to archive: Archive, payload: BackupPayload, tempDir: URL) throws {
+        let fileManager = FileManager.default
+        let receiptFileNames = payload.blocks
+            .flatMap { $0.expenses }
+            .compactMap { $0.receiptFileName }
+        let uniqueReceipts = Set(receiptFileNames)
+        guard !uniqueReceipts.isEmpty else { return }
+        let receiptsTempDir = tempDir.appendingPathComponent(Self.backupReceiptsFolder, isDirectory: true)
+        if fileManager.fileExists(atPath: receiptsTempDir.path) {
+            try fileManager.removeItem(at: receiptsTempDir)
+        }
+        try fileManager.createDirectory(at: receiptsTempDir, withIntermediateDirectories: true)
+        defer {
+            try? fileManager.removeItem(at: receiptsTempDir)
+        }
+
+        let storedReceiptsDir = try ReceiptStorage.receiptsDirectory()
+        for fileName in uniqueReceipts.sorted() {
+            let sourceURL = storedReceiptsDir.appendingPathComponent(fileName)
+            guard fileManager.fileExists(atPath: sourceURL.path) else { continue }
+            let destinationURL = receiptsTempDir.appendingPathComponent(fileName)
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try fileManager.removeItem(at: destinationURL)
+            }
+            try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            try archive.addEntry(with: "\(Self.backupReceiptsFolder)/\(fileName)", relativeTo: tempDir)
+        }
     }
 
     private func importBackup(_ payload: BackupPayload) throws {
@@ -728,6 +783,8 @@ struct DataView: View {
 
         try context.save()
     }
+    private static let backupJSONFilename = "FlexErrnBackup.json"
+    private static let backupReceiptsFolder = "Receipts"
 }
 
 private struct ShareableBackup: Identifiable {

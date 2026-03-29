@@ -77,6 +77,35 @@ struct SettingsView: View {
                             .buttonStyle(.plain)
                         }
 
+                        SectionCard(title: "About FlexErrn") {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("A pocket-friendly ride-by-ride calculator with configurable themes, expense categories, and protected backups.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                NavigationLink {
+                                    LicensesView()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "doc.text")
+                                        Text("Licenses")
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .fill(Color(.secondarySystemBackground))
+                                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
                     }
                     .padding()
                     .padding(.bottom, 32)
@@ -143,6 +172,69 @@ struct SettingsView: View {
         selectedAppearance = settings.first?.preferredAppearance ?? .system
     }
 
+}
+
+private struct LicensesView: View {
+    private let licenseEntries: [LicenseEntry] = [
+        LicenseEntry(
+            title: "ZIPFoundation",
+            subtitle: "MIT License",
+            licenseText:
+                """
+                Copyright (c) 2017-2025 Thomas Zoechling (https://www.peakstep.com)
+
+                Permission is hereby granted, free of charge, to any person obtaining a copy
+                of this software and associated documentation files (the \"Software\"), to deal
+                in the Software without restriction, including without limitation the rights
+                to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                copies of the Software, and to permit persons to whom the Software is
+                furnished to do so, subject to the following conditions:
+
+                The above copyright notice and this permission notice shall be included in all
+                copies or substantial portions of the Software.
+
+                THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+                FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+                AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+                LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+                OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+                SOFTWARE.
+                """
+        )
+    ]
+
+    var body: some View {
+        ZStack {
+            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    ForEach(licenseEntries) { entry in
+                        SectionCard(title: entry.title) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(entry.subtitle)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Text(entry.licenseText)
+                                    .font(.footnote)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+                .padding()
+                .padding(.bottom, 32)
+            }
+        }
+        .navigationTitle("Licenses")
+    }
+}
+
+private struct LicenseEntry: Identifiable {
+    let id = UUID()
+    let title: String
+    let subtitle: String
+    let licenseText: String
 }
 
 private struct SectionCard<Content: View>: View {

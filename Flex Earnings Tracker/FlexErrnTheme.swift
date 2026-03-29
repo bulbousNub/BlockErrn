@@ -11,6 +11,14 @@ enum FlexErrnTheme {
     )
 
     static let cardShadowColor = Color.black.opacity(0.25)
+    static let heroGradient = LinearGradient(
+        gradient: Gradient(colors: [
+            Color(red: 0.28, green: 0.45, blue: 0.78),
+            Color(red: 0.12, green: 0.30, blue: 0.58)
+        ]),
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
 }
 
 private struct FlexErrnCardModifier: ViewModifier {
