@@ -15,6 +15,9 @@ struct DataView: View {
     @State private var showClearConfirmation: Bool = false
     @State private var dataMessage: String?
     @State private var dataMessageStyle: DataMessageStyle = .info
+    @State private var backupMessage: String?
+    @State private var backupMessageStyle: DataMessageStyle = .info
+    @State private var lastBackupDate: Date?
 
     var body: some View {
         NavigationStack {
@@ -22,9 +25,10 @@ struct DataView: View {
                 FlexErrnTheme.backgroundGradient.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        dataCard
-                    }
+                VStack(spacing: 24) {
+                    dataCard
+                    backupTile
+                }
                     .padding()
                     .padding(.bottom, 32)
                 }
@@ -59,44 +63,83 @@ struct DataView: View {
             } message: {
                 Text("This removes every block, expense, and custom setting. The action cannot be undone.")
             }
+            .onAppear {
+                loadLastBackupDate()
+            }
         }
+    }
+
+    private var backupTile: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Backup")
+                        .font(.title3)
+                        .bold()
+                    Text("Create a full FlexErrn snapshot to safeguard every block, expense, note, and route. Backing up regularly keeps your history protected even if you reinstall or move devices.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "externaldrive.badge.checkmark")
+                    .font(.system(size: 36))
+                    .foregroundColor(.accentColor)
+            }
+
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Last backup")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Text(backupTimestampText)
+                        .font(.headline)
+                        .foregroundColor(backupStatusColor)
+                }
+            }
+
+            Button {
+                backupData()
+            } label: {
+                Label("Backup FlexErrn Data", systemImage: "square.and.arrow.up")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.accentColor)
+            if let message = backupMessage {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(backupMessageStyle.color)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .flexErrnCardStyle()
     }
 
     private var dataCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Data management")
+                    Text("Data Management")
                         .font(.title2)
                         .bold()
-                    Text("This tab handles backup and import functions to protect your FlexErrn data and also exports every record for safekeeping.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                Text("This section handles restores, imports, and CSV exports so you can move data back into FlexErrn or share it with other tools.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "externaldrive.connected.to.line.below")
                     .font(.title2)
                     .foregroundStyle(.secondary)
             }
-            Text("Backups, restores, and exports all live right here so you can share or recover your data whenever needed.")
+            Text("Restores, CSV exports, and data clears are handled here so you can keep flexible control over your records.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-
-            Button {
-                do {
-                    let url = try createBackupFile()
-                    shareableBackup = ShareableBackup(url: url)
-                    setDataMessage("Backup ready", style: .success)
-                } catch {
-                    setDataMessage("Backup failed: \(error.localizedDescription)", style: .error)
-                }
-            } label: {
-                Label("Backup FlexErrn Data", systemImage: "square.and.arrow.up")
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.accentColor)
 
             Button {
                 showImporter = true
@@ -135,6 +178,59 @@ struct DataView: View {
         }
         .flexErrnCardStyle()
     }
+
+    private func backupData() {
+        do {
+            let url = try createBackupFile()
+            shareableBackup = ShareableBackup(url: url)
+            let now = Date()
+            recordBackupDate(now)
+            backupMessage = "Backup ready"
+            backupMessageStyle = .success
+        } catch {
+            backupMessage = "Backup failed: \(error.localizedDescription)"
+            backupMessageStyle = .error
+        }
+    }
+
+    private func loadLastBackupDate() {
+        if let stored = UserDefaults.standard.object(forKey: Self.lastBackupKey) as? Date {
+            lastBackupDate = stored
+        } else {
+            lastBackupDate = nil
+        }
+    }
+
+    private func recordBackupDate(_ date: Date) {
+        lastBackupDate = date
+        UserDefaults.standard.set(date, forKey: Self.lastBackupKey)
+    }
+
+    private var backupTimestampText: String {
+        guard let date = lastBackupDate else { return "No backups yet" }
+        return Self.backupDateFormatter.string(from: date)
+    }
+
+    private var backupStatusColor: Color {
+        guard let date = lastBackupDate else { return .red }
+        let age = Date().timeIntervalSince(date)
+        let day = TimeInterval(24 * 60 * 60)
+        if age <= 6 * day {
+            return .green
+        }
+        if age <= 13 * day {
+            return Color.yellow
+        }
+        return .red
+    }
+
+    private static let lastBackupKey = "FlexErrnLastBackupDate"
+    private static let backupDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
