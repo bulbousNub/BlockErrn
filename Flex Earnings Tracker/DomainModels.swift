@@ -323,11 +323,11 @@ public extension Block {
     var mileageDeduction: Decimal { roundedMiles * irsRateSnapshot }
     var additionalExpensesTotal: Decimal {
         expenses.reduce(0 as Decimal) { partial, e in
-            if ExpenseCategory(rawValue: e.categoryRaw)?.excludedFromTotals == true {
+            guard !DeductionPreferenceStore.shared.isExpenseExcluded(e.id),
+                  ExpenseCategory(rawValue: e.categoryRaw)?.excludedFromTotals != true else {
                 return partial
-            } else {
-                return partial + e.amount
             }
+            return partial + e.amount
         }
     }
     var effectiveMileageDeduction: Decimal { shouldIncludeMileageDeduction ? mileageDeduction : 0 }
@@ -367,6 +367,10 @@ public extension Block {
 
     var shouldIncludeExpensesDeduction: Bool {
         !shouldExcludeExpensesDeduction
+    }
+
+    var hasIndividuallyExcludedExpenses: Bool {
+        expenses.contains { DeductionPreferenceStore.shared.isExpenseExcluded($0.id) }
     }
 }
 

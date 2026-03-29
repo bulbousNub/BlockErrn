@@ -6,6 +6,9 @@ final class DeductionPreferenceStore {
     private let key = "FlexErrnDeductionPreferences"
     private var cache: [String: [String: Bool]]?
 
+    private let expenseKey = "FlexErrnExpenseExclusions"
+    private var expenseCache: [String: Bool]?
+
     enum PreferenceType: String {
         case mileage
         case expenses
@@ -25,6 +28,17 @@ final class DeductionPreferenceStore {
         saveCache()
     }
 
+    func isExpenseExcluded(_ expenseID: UUID) -> Bool {
+        loadExpenseCacheIfNeeded()
+        return expenseCache?[expenseID.uuidString] ?? false
+    }
+
+    func setExpenseExcluded(_ excluded: Bool, expenseID: UUID) {
+        loadExpenseCacheIfNeeded()
+        expenseCache?[expenseID.uuidString] = excluded
+        saveExpenseCache()
+    }
+
     private func loadCacheIfNeeded() {
         if cache != nil { return }
         if let stored = UserDefaults.standard.dictionary(forKey: key) as? [String: [String: Bool]] {
@@ -37,5 +51,19 @@ final class DeductionPreferenceStore {
     private func saveCache() {
         guard let cache = cache else { return }
         UserDefaults.standard.set(cache, forKey: key)
+    }
+
+    private func loadExpenseCacheIfNeeded() {
+        if expenseCache != nil { return }
+        if let stored = UserDefaults.standard.dictionary(forKey: expenseKey) as? [String: Bool] {
+            expenseCache = stored
+        } else {
+            expenseCache = [:]
+        }
+    }
+
+    private func saveExpenseCache() {
+        guard let expenseCache = expenseCache else { return }
+        UserDefaults.standard.set(expenseCache, forKey: expenseKey)
     }
 }

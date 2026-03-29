@@ -36,18 +36,6 @@ struct BlockDetailView: View {
         }
         .navigationTitle("Block Details")
         .keyboardDoneToolbar()
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button("Mark Completed") { block.status = .completed; log(AuditAction.statusChanged) }
-                    Button("Mark Cancelled") { block.status = .cancelled; log(AuditAction.statusChanged) }
-                    Button("Mark No-Show") { block.status = .noShow; log(AuditAction.statusChanged) }
-                } label: {
-                    Label("Status", systemImage: "checkmark.circle")
-                        .foregroundColor(buttonTextColor)
-                }
-            }
-        }
         .sheet(isPresented: $showAddExpense) {
             AddExpenseSheet(block: $block)
         }
@@ -194,7 +182,7 @@ struct BlockDetailView: View {
                     touch()
                 }
             )) {
-                Text("Exclude mileage deduction from profit")
+                Text("Exclude Mileage Deduction from Profit Calculation")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -286,12 +274,18 @@ struct BlockDetailView: View {
                                             .background(Color.gray.opacity(0.2))
                                             .cornerRadius(4)
                                     }
-                                    Text(Self.tileTimeFormatter.string(from: expense.createdAt))
+                                    Text("Created at \(BlockDetailView.expenseTimestampFormatter.string(from: expense.createdAt))")
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)
                                     if let updated = expense.updatedAt, updated > expense.createdAt {
-                                        Text("Updated \(Self.tileTimeFormatter.string(from: updated))")
+                                        Text("Updated at \(BlockDetailView.expenseTimestampFormatter.string(from: updated))")
                                             .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    if DeductionPreferenceStore.shared.isExpenseExcluded(expense.id) {
+                                        Text("Excluded from profit")
+                                            .font(.caption2)
+                                            .italic()
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -324,7 +318,7 @@ struct BlockDetailView: View {
                     touch()
                 }
             )) {
-                Text("Exclude expenses from profit")
+                Text("Exclude All Expenses from Profit Calculation")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -338,30 +332,50 @@ struct BlockDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Totals")
                 .font(.headline)
-            totalsRow(title: "Additional expenses", value: block.additionalExpensesTotal, active: block.shouldIncludeExpensesDeduction)
-            totalsRow(title: "Mileage deduction", value: block.mileageDeduction, active: block.shouldIncludeMileageDeduction)
-            totalsRow(title: "Total profit", value: block.totalProfit, active: true)
+            totalsRow(
+                title: "Additional Expenses",
+                subtitle: additionalExpensesSubtitle,
+                value: block.additionalExpensesTotal,
+                active: block.shouldIncludeExpensesDeduction
+            )
+            totalsRow(title: "Mileage deduction", subtitle: nil, value: block.mileageDeduction, active: block.shouldIncludeMileageDeduction)
+            totalsRow(title: "Total profit", subtitle: nil, value: block.totalProfit, active: true)
             HStack { Text("Total Profit $/hr"); Spacer(); Text(formatCurrency(profitPerHour())) }
         }
         .flexErrnCardStyle()
     }
 
-    private func totalsRow(title: String, value: Decimal, active: Bool) -> some View {
-        HStack {
-            styledLabel(title, active: active)
+    private func totalsRow(title: String, subtitle: Text?, value: Decimal, active: Bool) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 2) {
+                styledLabel(Text(title), active: active)
+                if let subtitle = subtitle {
+                    subtitle
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Spacer()
-            styledLabel(formatCurrency(value), active: active)
+            styledLabel(Text(formatCurrency(value)), active: active)
         }
     }
 
-    private func styledLabel(_ text: String, active: Bool) -> Text {
-        var styled = Text(text)
+    private func styledLabel(_ text: Text, active: Bool) -> Text {
+        var styled = text
             .foregroundStyle(active ? .primary : .secondary)
-            .strikethrough(!active, color: .secondary)
         if !active {
-            styled = styled.italic()
+            styled = styled
+                .strikethrough(true, color: .secondary)
+                .italic()
         }
         return styled
+    }
+
+    private var additionalExpensesSubtitle: Text? {
+        guard block.hasIndividuallyExcludedExpenses else { return nil }
+        return Text("Individual Expenses Excluded")
+            .italic()
+            .foregroundStyle(.secondary)
     }
 
     private var buttonTextColor: Color {
@@ -376,10 +390,9 @@ struct BlockDetailView: View {
         categoryDescriptors.first(where: { $0.id == raw })?.name ?? raw.capitalized
     }
 
-    private static let tileTimeFormatter: DateFormatter = {
+    fileprivate static let expenseTimestampFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
+        formatter.dateFormat = "MMMM d, yyyy 'at' h:mm a"
         return formatter
     }()
 
@@ -779,15 +792,14 @@ private struct ExpenseDetailView: View {
         ZStack {
             FlexErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    header
-                    detailCard
-                }
+            VStack(spacing: 24) {
+                detailCard
+            }
                 .padding()
                 .padding(.bottom, 32)
             }
         }
-        .navigationTitle("Expense")
+        .navigationTitle("Expense Detail")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Done") {
@@ -797,22 +809,10 @@ private struct ExpenseDetailView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Expense details")
-                .font(.title2)
-                .bold()
-            Text("Adjust the category, amount, or note to keep totals accurate.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private var detailCard: some View {
         VStack(spacing: 16) {
             heroFields
+            exclusionToggle
             noteField
             timestampRow
         }
@@ -849,6 +849,14 @@ private struct ExpenseDetailView: View {
         }
     }
 
+    private var exclusionToggle: some View {
+        heroBlock(title: "Profit impact") {
+            Toggle("Exclude from profit", isOn: exclusionBinding)
+                .toggleStyle(.switch)
+                .tint(.accentColor)
+        }
+    }
+
     private var noteField: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Note")
@@ -876,11 +884,11 @@ private struct ExpenseDetailView: View {
         HStack {
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text("Created at \(Self.detailTimestampFormatter.string(from: expense.createdAt))")
+                Text("Created at \(BlockDetailView.expenseTimestampFormatter.string(from: expense.createdAt))")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 if let updated = expense.updatedAt, updated > expense.createdAt {
-                    Text("Last Modified at \(Self.detailTimestampFormatter.string(from: updated))")
+                    Text("Last Modified at \(BlockDetailView.expenseTimestampFormatter.string(from: updated))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -941,16 +949,21 @@ private struct ExpenseDetailView: View {
         )
     }
 
+    private var exclusionBinding: Binding<Bool> {
+        Binding(
+            get: { DeductionPreferenceStore.shared.isExpenseExcluded(expense.id) },
+            set: { newValue in
+                DeductionPreferenceStore.shared.setExpenseExcluded(newValue, expenseID: expense.id)
+                save()
+            }
+        )
+    }
+
     private func save() {
         expense.updatedAt = Date()
         try? context.save()
     }
 
-    private static let detailTimestampFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM d, yyyy 'at' h:mm a"
-        return formatter
-    }()
 }
 
     private struct RouteMapView: UIViewRepresentable {
