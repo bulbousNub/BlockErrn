@@ -12,9 +12,6 @@ struct DataView: View {
     @State private var showCSVExporter: Bool = false
     @State private var csvDocument: CSVDocument = .empty
     @State private var showImporter: Bool = false
-    @State private var showClearConfirmation: Bool = false
-    @State private var dataMessage: String?
-    @State private var dataMessageStyle: DataMessageStyle = .info
     @State private var backupMessage: String?
     @State private var backupMessageStyle: DataMessageStyle = .info
     @State private var importMessage: String?
@@ -62,12 +59,6 @@ struct DataView: View {
                 case .failure(let error):
                     setExportMessage("CSV failed: \(error.localizedDescription)", style: .error)
                 }
-            }
-            .alert("Delete all saved data?", isPresented: $showClearConfirmation) {
-                Button("Delete Everything", role: .destructive) { clearAllData() }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("This removes every block, expense, and custom setting. The action cannot be undone.")
             }
             .onAppear {
                 loadLastBackupDate()
@@ -213,37 +204,21 @@ struct DataView: View {
                     Text("Data Management")
                         .font(.title2)
                         .bold()
-                Text("This section handles restores, imports, and CSV exports so you can move data back into FlexErrn or share it with other tools.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    Text("Manage backups, imports, exports, and destructive resets for your FlexErrn history.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 Image(systemName: "externaldrive.connected.to.line.below")
                     .font(.title2)
                     .foregroundStyle(.secondary)
             }
-            Text("Restores, CSV exports, and data clears are handled here so you can keep flexible control over your records.")
+            Text("Use these controls to share data, restore previous backups, or erase everything when needed.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button(role: .destructive) {
-                showClearConfirmation = true
-            } label: {
-                Label("Clear All Data", systemImage: "trash")
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.red)
-
-            Button(role: .destructive) {
-                showClearConfirmation = true
-            } label: {
-                Label("Clear All Data", systemImage: "trash")
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.red)
         }
         .flexErrnCardStyle()
     }
@@ -433,11 +408,6 @@ struct DataView: View {
         return string
     }
 
-    private func setDataMessage(_ text: String, style: DataMessageStyle) {
-        dataMessage = text
-        dataMessageStyle = style
-    }
-
     private func setExportMessage(_ text: String, style: DataMessageStyle) {
         exportMessage = text
         exportMessageStyle = style
@@ -452,17 +422,6 @@ struct DataView: View {
     private func setImportMessage(_ text: String, style: DataMessageStyle) {
         importMessage = text
         importMessageStyle = style
-    }
-
-    private func clearAllData() {
-        for block in blocks {
-            context.delete(block)
-        }
-        for setting in settings {
-            context.delete(setting)
-        }
-        try? context.save()
-        setDataMessage("All data removed. Blocks and settings cleared.", style: .info)
     }
 
     private func makeBackupPayload() -> BackupPayload {
@@ -624,7 +583,7 @@ private struct ActivityView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-private enum DataMessageStyle {
+enum DataMessageStyle {
     case info
     case success
     case error

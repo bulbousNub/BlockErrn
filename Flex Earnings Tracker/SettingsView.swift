@@ -57,6 +57,26 @@ struct SettingsView: View {
                                 }
                             }
 
+                        SectionCard(title: "Erase All Content and Settings") {
+                            NavigationLink {
+                                EraseDataView()
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Completely remove every block, expense, and custom preference for a fresh start.")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                     }
                     .padding()
                     .padding(.bottom, 32)
