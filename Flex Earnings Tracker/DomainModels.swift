@@ -78,6 +78,14 @@ public struct RoutePoint: Codable, Hashable {
     }
 }
 
+public struct RouteSegment: Codable, Hashable {
+    public let points: [RoutePoint]
+
+    public init(points: [RoutePoint]) {
+        self.points = points
+    }
+}
+
 public enum BlockStatus: String, Codable, CaseIterable, Identifiable {
     case accepted
     case completed
@@ -232,22 +240,53 @@ public final class Block {
 
     public var routePoints: [RoutePoint]? {
         get {
-            guard
-                let data = routePointsData,
-                let decoded = try? Self.routeDecoder.decode([RoutePoint].self, from: data),
-                !decoded.isEmpty
-            else {
-                return nil
-            }
-            return decoded
+            routeSegments?.flatMap { $0 }
         }
         set {
-            if let points = newValue, !points.isEmpty {
-                routePointsData = try? Self.routeEncoder.encode(points)
-            } else {
-                routePointsData = nil
+            guard let points = newValue, !points.isEmpty else {
+                routeSegments = nil
+                return
             }
+            routeSegments = [points]
         }
+    }
+
+    public var routeSegments: [[RoutePoint]]? {
+        get {
+            guard let data = routePointsData else { return nil }
+
+            if let segments = try? Self.segmentDecoder.decode([RouteSegment].self, from: data),
+               !segments.isEmpty {
+                let cleaned = segments
+                    .map(\.points)
+                    .filter { !$0.isEmpty }
+                return cleaned.isEmpty ? nil : cleaned
+            }
+
+            if let decoded = try? Self.routeDecoder.decode([RoutePoint].self, from: data),
+               !decoded.isEmpty {
+                return [decoded]
+            }
+
+            return nil
+        }
+        set {
+            let filtered = newValue?.filter { !$0.isEmpty } ?? []
+            guard !filtered.isEmpty else {
+                routePointsData = nil
+                return
+            }
+
+            let wrapped = filtered.map { RouteSegment(points: $0) }
+            routePointsData = try? Self.segmentEncoder.encode(wrapped)
+        }
+    }
+
+    public func appendRouteSegment(_ newPoints: [RoutePoint]) {
+        guard !newPoints.isEmpty else { return }
+        var pieces = routeSegments ?? []
+        pieces.append(newPoints)
+        routeSegments = pieces
     }
 
     private static let routeEncoder: JSONEncoder = {
@@ -261,12 +300,24 @@ public final class Block {
         decoder.dateDecodingStrategy = .iso8601
         return decoder
     }()
+
+    private static let segmentEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    private static let segmentDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
 }
 
 public extension Block {
     var hoursDecimal: Decimal { Decimal(durationMinutes) / 60 }
     var grossPayout: Decimal { grossBase + (tipsAmount ?? 0) }
-    var mileageDeduction: Decimal { miles * irsRateSnapshot }
+    var mileageDeduction: Decimal { roundedMiles * irsRateSnapshot }
     var additionalExpensesTotal: Decimal {
         expenses.reduce(0 as Decimal) { partial, e in
             if ExpenseCategory(rawValue: e.categoryRaw)?.excludedFromTotals == true {
@@ -276,7 +327,9 @@ public extension Block {
             }
         }
     }
-    var totalProfit: Decimal { grossPayout - mileageDeduction - additionalExpensesTotal }
+    var effectiveMileageDeduction: Decimal { shouldIncludeMileageDeduction ? mileageDeduction : 0 }
+    var effectiveExpensesDeduction: Decimal { shouldIncludeExpensesDeduction ? additionalExpensesTotal : 0 }
+    var totalProfit: Decimal { grossPayout - effectiveMileageDeduction - effectiveExpensesDeduction }
     var roundedMiles: Decimal {
         var mutable = miles
         var rounded = Decimal()
@@ -295,6 +348,22 @@ public extension Block {
         let effectiveStart = scheduledStartDate
         let effectiveMinutes = max(1, durationMinutes)
         return effectiveStart.addingTimeInterval(TimeInterval(effectiveMinutes * 60))
+    }
+
+    var shouldExcludeMileageDeduction: Bool {
+        DeductionPreferenceStore.shared.shouldExclude(type: .mileage, blockID: id)
+    }
+
+    var shouldIncludeMileageDeduction: Bool {
+        !shouldExcludeMileageDeduction
+    }
+
+    var shouldExcludeExpensesDeduction: Bool {
+        DeductionPreferenceStore.shared.shouldExclude(type: .expenses, blockID: id)
+    }
+
+    var shouldIncludeExpensesDeduction: Bool {
+        !shouldExcludeExpensesDeduction
     }
 }
 

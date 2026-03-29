@@ -158,15 +158,15 @@ struct BlockDetailView: View {
 
     @ViewBuilder
     private var routeCard: some View {
-        if let routePoints = block.routePoints, !routePoints.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Route")
-                    .font(.headline)
-                RouteMapView(routePoints: routePoints)
-                    .frame(height: 200)
+            if let segments = block.routeSegments, !segments.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Route")
+                        .font(.headline)
+                    RouteMapView(routeSegments: segments)
+                        .frame(height: 200)
+                }
+                .flexErrnCardStyle()
             }
-            .flexErrnCardStyle()
-        }
     }
 
     private var mileageCard: some View {
@@ -185,6 +185,20 @@ struct BlockDetailView: View {
                 Spacer()
                 Text(formatCurrency(block.mileageDeduction))
             }
+            Toggle(isOn: Binding(
+                get: { block.shouldExcludeMileageDeduction },
+                set: { newValue in
+                    let oldValue = block.shouldExcludeMileageDeduction
+                    DeductionPreferenceStore.shared.setExclude(newValue, type: .mileage, blockID: block.id)
+                    log(AuditAction.milesUpdated, field: "excludeMileageDeduction", oldValue: oldValue ? "true" : "false", newValue: newValue ? "true" : "false")
+                    touch()
+                }
+            )) {
+                Text("Exclude mileage deduction from profit")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .toggleStyle(.switch)
             if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
                 Text("Tracking: \(String(format: "%.2f", mileageTracker.currentMiles)) mi")
                     .font(.caption2)
@@ -209,12 +223,7 @@ struct BlockDetailView: View {
                     Button {
                         if let (sessionMiles, routePoints) = mileageTracker.stopTracking(for: block.id) {
                             block.miles += Decimal(sessionMiles)
-                            if var existingPoints = block.routePoints {
-                                existingPoints.append(contentsOf: routePoints)
-                                block.routePoints = existingPoints
-                            } else {
-                                block.routePoints = routePoints
-                            }
+                            block.appendRouteSegment(routePoints)
                             touch()
                             promptCompletion()
                         }
@@ -275,6 +284,20 @@ struct BlockDetailView: View {
                     }
                 }
             }
+            Toggle(isOn: Binding(
+                get: { block.shouldExcludeExpensesDeduction },
+                set: { newValue in
+                    let oldValue = block.shouldExcludeExpensesDeduction
+                    DeductionPreferenceStore.shared.setExclude(newValue, type: .expenses, blockID: block.id)
+                    log(AuditAction.expenseAdded, field: "excludeExpenseDeduction", oldValue: oldValue ? "true" : "false", newValue: newValue ? "true" : "false")
+                    touch()
+                }
+            )) {
+                Text("Exclude expenses from profit")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .toggleStyle(.switch)
         }
         .frame(maxWidth: .infinity)
         .flexErrnCardStyle()
@@ -284,12 +307,30 @@ struct BlockDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Totals")
                 .font(.headline)
-            HStack { Text("Additional expenses"); Spacer(); Text(formatCurrency(block.additionalExpensesTotal)) }
-            HStack { Text("Mileage deduction"); Spacer(); Text(formatCurrency(block.mileageDeduction)) }
-            HStack { Text("Total profit"); Spacer(); Text(formatCurrency(block.totalProfit)) }
+            totalsRow(title: "Additional expenses", value: block.additionalExpensesTotal, active: block.shouldIncludeExpensesDeduction)
+            totalsRow(title: "Mileage deduction", value: block.mileageDeduction, active: block.shouldIncludeMileageDeduction)
+            totalsRow(title: "Total profit", value: block.totalProfit, active: true)
             HStack { Text("Total Profit $/hr"); Spacer(); Text(formatCurrency(profitPerHour())) }
         }
         .flexErrnCardStyle()
+    }
+
+    private func totalsRow(title: String, value: Decimal, active: Bool) -> some View {
+        HStack {
+            styledLabel(title, active: active)
+            Spacer()
+            styledLabel(formatCurrency(value), active: active)
+        }
+    }
+
+    private func styledLabel(_ text: String, active: Bool) -> Text {
+        var styled = Text(text)
+            .foregroundStyle(active ? .primary : .secondary)
+            .strikethrough(!active, color: .secondary)
+        if !active {
+            styled = styled.italic()
+        }
+        return styled
     }
 
     private var buttonTextColor: Color {
@@ -689,8 +730,8 @@ struct LiquidNotesField: View {
     }
 }
 
-private struct RouteMapView: UIViewRepresentable {
-    let routePoints: [RoutePoint]
+    private struct RouteMapView: UIViewRepresentable {
+        let routeSegments: [[RoutePoint]]
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -707,39 +748,43 @@ private struct RouteMapView: UIViewRepresentable {
         return mapView
     }
 
-    func updateUIView(_ mapView: MKMapView, context: Context) {
-        mapView.removeOverlays(mapView.overlays)
-        mapView.removeAnnotations(mapView.annotations)
+        func updateUIView(_ mapView: MKMapView, context: Context) {
+            mapView.removeOverlays(mapView.overlays)
+            mapView.removeAnnotations(mapView.annotations)
 
-        let coords = routePoints.map(\.coordinate)
-        guard !coords.isEmpty else {
-            let defaultCoordinate = CLLocationCoordinate2D(latitude: 37.3349, longitude: -122.00902)
-            mapView.region = MKCoordinateRegion(center: defaultCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
-            return
+            let segments = routeSegments.map { $0.map(\.coordinate) }.filter { !$0.isEmpty }
+            guard !segments.isEmpty else {
+                let defaultCoordinate = CLLocationCoordinate2D(latitude: 37.3349, longitude: -122.00902)
+                mapView.region = MKCoordinateRegion(center: defaultCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+                return
+            }
+
+            let allCoords = segments.flatMap { $0 }
+            let region = regionForCoordinates(allCoords)
+            mapView.setRegion(region, animated: false)
+
+            for segment in segments {
+                if segment.count > 1 {
+                    let polyline = MKPolyline(coordinates: segment, count: segment.count)
+                    mapView.addOverlay(polyline)
+                }
+            }
+
+            for (index, segment) in segments.enumerated() {
+                if let start = segment.first {
+                    let annotation = MKPointAnnotation()
+                    annotation.coordinate = start
+                    annotation.title = title(for: index, total: segments.count, type: .start)
+                    mapView.addAnnotation(annotation)
+                }
+                if let end = segment.last, regionContains(region, coordinate: end) {
+                    let annotation = MKPointAnnotation()
+                    annotation.coordinate = end
+                    annotation.title = title(for: index, total: segments.count, type: .end)
+                    mapView.addAnnotation(annotation)
+                }
+            }
         }
-
-        let region = regionForCoordinates(coords)
-        mapView.setRegion(region, animated: false)
-
-        if coords.count > 1 {
-            let polyline = MKPolyline(coordinates: coords, count: coords.count)
-            mapView.addOverlay(polyline)
-        }
-
-        if let first = coords.first {
-            let annotation = MKPointAnnotation()
-            annotation.coordinate = first
-            annotation.title = "Start"
-            mapView.addAnnotation(annotation)
-        }
-
-        if let last = coords.last, regionContains(region, coordinate: last) {
-            let annotation = MKPointAnnotation()
-            annotation.coordinate = last
-            annotation.title = "End"
-            mapView.addAnnotation(annotation)
-        }
-    }
 
     private func regionForCoordinates(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
         let latitudes = coords.map(\.latitude)
@@ -753,13 +798,23 @@ private struct RouteMapView: UIViewRepresentable {
         return MKCoordinateRegion(center: center, span: span)
     }
 
-    private func regionContains(_ region: MKCoordinateRegion, coordinate: CLLocationCoordinate2D) -> Bool {
-        let latInRange = coordinate.latitude >= region.center.latitude - region.span.latitudeDelta/2 &&
-            coordinate.latitude <= region.center.latitude + region.span.latitudeDelta/2
-        let lonInRange = coordinate.longitude >= region.center.longitude - region.span.longitudeDelta/2 &&
-            coordinate.longitude <= region.center.longitude + region.span.longitudeDelta/2
-        return latInRange && lonInRange
-    }
+        private func regionContains(_ region: MKCoordinateRegion, coordinate: CLLocationCoordinate2D) -> Bool {
+            let latInRange = coordinate.latitude >= region.center.latitude - region.span.latitudeDelta/2 &&
+                coordinate.latitude <= region.center.latitude + region.span.latitudeDelta/2
+            let lonInRange = coordinate.longitude >= region.center.longitude - region.span.longitudeDelta/2 &&
+                coordinate.longitude <= region.center.longitude + region.span.longitudeDelta/2
+            return latInRange && lonInRange
+        }
+
+        private enum AnnotationType { case start, end }
+
+        private func title(for index: Int, total: Int, type: AnnotationType) -> String {
+            if total == 1 {
+                return type == .start ? "Start" : "End"
+            }
+            let label = type == .start ? "Start" : "End"
+            return "\(label) - \(index + 1)"
+        }
 
     fileprivate class Coordinator: NSObject, MKMapViewDelegate {
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {

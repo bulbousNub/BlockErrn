@@ -51,12 +51,16 @@ struct CalculatorView: View {
         workModeBlock != nil
     }
 
-    private var workModeRoutePoints: [RoutePoint]? {
+    private var workModeRouteSegments: [[RoutePoint]]? {
         guard let block = workModeBlock else { return nil }
+        var segments = block.routeSegments ?? []
         if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
-            return mileageTracker.currentRoutePoints
+            let live = mileageTracker.currentRoutePoints
+            if !live.isEmpty {
+                segments.append(live)
+            }
         }
-        return block.routePoints
+        return segments.isEmpty ? nil : segments
     }
 
     private var workModeMileageDisplay: String? {
@@ -91,17 +95,12 @@ struct CalculatorView: View {
 
     private func handleWorkModeStop() {
         guard let block = workModeBlock else { return }
-        if let (sessionMiles, routePoints) = mileageTracker.stopTracking(for: block.id) {
-            block.miles += Decimal(sessionMiles)
-            if var existingPoints = block.routePoints {
-                existingPoints.append(contentsOf: routePoints)
-                block.routePoints = existingPoints
-            } else {
-                block.routePoints = routePoints
+            if let (sessionMiles, routePoints) = mileageTracker.stopTracking(for: block.id) {
+                block.miles += Decimal(sessionMiles)
+                block.appendRouteSegment(routePoints)
+                block.updatedAt = Date()
+                try? context.save()
             }
-            block.updatedAt = Date()
-            try? context.save()
-        }
     }
 
     private func requestResetTrackedMiles() {
@@ -158,7 +157,7 @@ struct CalculatorView: View {
                 VStack(spacing: 12) {
                     WorkModeView(
                         block: workBlock,
-                        routePoints: workModeRoutePoints,
+                        routeSegments: workModeRouteSegments,
                         mileageDisplay: workModeMileageDisplay,
                         isTracking: mileageTracker.isTracking && mileageTracker.currentBlockID == workBlock.id,
                         onAddExpense: { showWorkModeExpenseSheet = true },
@@ -558,10 +557,14 @@ struct CalculatorView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Gross: \(formatCurrency(block.grossPayout))")
                             .font(.caption2)
-                        Text("Expenses: \(formatCurrency(block.additionalExpensesTotal))")
-                            .font(.caption2)
-                        Text("Mileage cost: \(formatCurrency(mileageCost))")
-                            .font(.caption2)
+                        if block.shouldIncludeExpensesDeduction {
+                            Text("Expenses: \(formatCurrency(block.additionalExpensesTotal))")
+                                .font(.caption2)
+                        }
+                        if block.shouldIncludeMileageDeduction {
+                            Text("Mileage cost: \(formatCurrency(mileageCost))")
+                                .font(.caption2)
+                        }
                     }
                     Spacer()
                     VStack(alignment: .leading, spacing: 2) {
@@ -604,7 +607,7 @@ struct CalculatorView: View {
 
     private struct WorkModeView: View {
         let block: Block
-        let routePoints: [RoutePoint]?
+        let routeSegments: [[RoutePoint]]?
         let mileageDisplay: String?
         let isTracking: Bool
         let onAddExpense: () -> Void
@@ -628,7 +631,7 @@ struct CalculatorView: View {
                             .foregroundColor(.primary)
                     }
                 }
-                WorkModeMapView(routePoints: routePoints)
+                WorkModeMapView(routeSegments: routeSegments, showsEndAnnotation: !isTracking)
                     .frame(height: 200)
                 if let mileage = mileageDisplay {
                     HStack {
@@ -665,7 +668,8 @@ struct CalculatorView: View {
     }
 
     private struct WorkModeMapView: UIViewRepresentable {
-        let routePoints: [RoutePoint]?
+        let routeSegments: [[RoutePoint]]?
+        let showsEndAnnotation: Bool
 
         func makeCoordinator() -> Coordinator {
             Coordinator()
@@ -675,7 +679,7 @@ struct CalculatorView: View {
             let mapView = MKMapView()
             mapView.delegate = context.coordinator
             mapView.showsCompass = false
-            mapView.showsUserLocation = false
+            mapView.showsUserLocation = true
             mapView.isRotateEnabled = false
             mapView.isPitchEnabled = false
             mapView.layer.cornerRadius = 16
@@ -686,8 +690,11 @@ struct CalculatorView: View {
         func updateUIView(_ mapView: MKMapView, context: Context) {
             mapView.removeOverlays(mapView.overlays)
             mapView.removeAnnotations(mapView.annotations)
+            mapView.userTrackingMode = showsEndAnnotation ? .none : .follow
+            context.coordinator.shouldFollowUser = !showsEndAnnotation
 
-            guard let coords = routePoints?.map({ $0.coordinate }), !coords.isEmpty else {
+            let segments = routeSegments?.map { $0.map(\.coordinate) }.filter { !$0.isEmpty } ?? []
+            guard !segments.isEmpty else {
                 if let location = context.coordinator.lastKnownLocation {
                     mapView.setRegion(Self.regionForCoordinate(location.coordinate), animated: false)
                 } else {
@@ -697,26 +704,34 @@ struct CalculatorView: View {
                 return
             }
 
-            let region = regionForCoordinates(coords)
+            let allCoords = segments.flatMap { $0 }
+            let region = regionForCoordinates(allCoords)
             mapView.setRegion(region, animated: false)
 
-            if coords.count > 1 {
-                let polyline = MKPolyline(coordinates: coords, count: coords.count)
-                mapView.addOverlay(polyline)
+            if allCoords.count > 1 {
+                for segment in segments {
+                    let polyline = MKPolyline(coordinates: segment, count: segment.count)
+                    mapView.addOverlay(polyline)
+                }
             }
 
-            if let first = coords.first {
-                let annotation = MKPointAnnotation()
-                annotation.coordinate = first
-                annotation.title = "Start"
-                mapView.addAnnotation(annotation)
-            }
+            let totalSegments = segments.count
+            let completedSegmentCount = showsEndAnnotation ? totalSegments : max(0, totalSegments - 1)
 
-            if let last = coords.last, regionContains(region, coordinate: last) {
-                let annotation = MKPointAnnotation()
-                annotation.coordinate = last
-                annotation.title = "End"
-                mapView.addAnnotation(annotation)
+            for (index, segment) in segments.enumerated() {
+                if let start = segment.first {
+                    let annotation = MKPointAnnotation()
+                    annotation.coordinate = start
+                    annotation.title = title(for: index, total: totalSegments, type: .start)
+                    mapView.addAnnotation(annotation)
+                }
+
+                if index < completedSegmentCount, let end = segment.last, regionContains(region, coordinate: end) {
+                    let annotation = MKPointAnnotation()
+                    annotation.coordinate = end
+                    annotation.title = title(for: index, total: totalSegments, type: .end)
+                    mapView.addAnnotation(annotation)
+                }
             }
         }
 
@@ -744,10 +759,21 @@ struct CalculatorView: View {
             return latInRange && lonInRange
         }
 
+        private enum AnnotationType { case start, end }
+
+        private func title(for index: Int, total: Int, type: AnnotationType) -> String {
+            if total == 1 {
+                return type == .start ? "Start" : "End"
+            }
+            let label = type == .start ? "Start" : "End"
+            return "\(label) - \(index + 1)"
+        }
+
         fileprivate class Coordinator: NSObject, MKMapViewDelegate, CLLocationManagerDelegate {
             private let locationManager = CLLocationManager()
             private weak var mapView: MKMapView?
             var lastKnownLocation: CLLocation?
+            var shouldFollowUser: Bool = false
 
             override init() {
                 super.init()
@@ -775,7 +801,8 @@ struct CalculatorView: View {
             func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
                 guard let location = locations.last else { return }
                 lastKnownLocation = location
-                guard mapView?.overlays.isEmpty ?? true else { return }
+                let shouldCenter = shouldFollowUser || (mapView?.overlays.isEmpty ?? true)
+                guard shouldCenter else { return }
                 mapView?.setRegion(WorkModeMapView.regionForCoordinate(location.coordinate), animated: true)
             }
 
@@ -814,6 +841,7 @@ struct CalculatorView: View {
 
     private func liveMileageExpense(for block: Block) -> Decimal {
         let rate = mileageRate(for: block)
+        guard block.shouldIncludeMileageDeduction else { return 0 }
         let miles = liveMiles(for: block)
         let usedMiles = roundedMilesDecimal(miles)
         return usedMiles * rate
@@ -821,7 +849,7 @@ struct CalculatorView: View {
 
     private func liveProfit(for block: Block) -> Decimal {
         let gross = block.grossPayout
-        let expenses = block.additionalExpensesTotal
+        let expenses = block.shouldIncludeExpensesDeduction ? block.additionalExpensesTotal : 0
         let mileage = liveMileageExpense(for: block)
         return gross - expenses - mileage
     }

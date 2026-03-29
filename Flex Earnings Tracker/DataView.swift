@@ -4,6 +4,84 @@ import UniformTypeIdentifiers
 import UIKit
 
 struct DataView: View {
+    private enum ExportField: String, CaseIterable, Identifiable {
+        case blockID
+        case date
+        case durationMinutes
+        case status
+        case notes
+        case basePay
+        case hasTips
+        case tipsAmount
+        case grossPayout
+        case grossPerHour
+        case scheduledStart
+        case scheduledEnd
+        case userStartTime
+        case userCompletionTime
+        case roundedMiles
+        case rateSnapshot
+        case mileageDeduction
+        case expensesTotal
+        case totalProfit
+        case profitPerHour
+        case expenses
+        case auditEntries
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .blockID: return "Block ID"
+            case .date: return "Date"
+            case .durationMinutes: return "Duration"
+            case .status: return "Status"
+            case .notes: return "Notes"
+            case .basePay: return "Base Pay"
+            case .hasTips: return "Has Tips"
+            case .tipsAmount: return "Tips Amount"
+            case .grossPayout: return "Gross Payout"
+            case .grossPerHour: return "Gross $/hr"
+            case .scheduledStart: return "Scheduled Start"
+            case .scheduledEnd: return "Scheduled End"
+            case .userStartTime: return "User Start Time"
+            case .userCompletionTime: return "User Completion Time"
+            case .roundedMiles: return "Whole Miles"
+            case .rateSnapshot: return "Rate Snapshot"
+            case .mileageDeduction: return "Mileage Deduction"
+            case .expensesTotal: return "Expenses Total"
+            case .totalProfit: return "Total Profit"
+            case .profitPerHour: return "Total Profit $/hr"
+            case .expenses: return "Expenses"
+            case .auditEntries: return "Audit Entries"
+            }
+        }
+    }
+
+    private static let exportFieldOrder: [ExportField] = [
+        .blockID,
+        .date,
+        .durationMinutes,
+        .status,
+        .notes,
+        .basePay,
+        .hasTips,
+        .tipsAmount,
+        .grossPayout,
+        .grossPerHour,
+        .scheduledStart,
+        .scheduledEnd,
+        .userStartTime,
+        .userCompletionTime,
+        .roundedMiles,
+        .rateSnapshot,
+        .mileageDeduction,
+        .expensesTotal,
+        .totalProfit,
+        .profitPerHour,
+        .expenses,
+        .auditEntries
+    ]
     @Environment(\.modelContext) private var context
     @Query private var settings: [AppSettings]
     @Query private var blocks: [Block]
@@ -11,6 +89,7 @@ struct DataView: View {
     @State private var shareableBackup: ShareableBackup?
     @State private var showCSVExporter: Bool = false
     @State private var csvDocument: CSVDocument = .empty
+    @State private var selectedExportFields: Set<ExportField> = Set(Self.exportFieldOrder)
     @State private var showImporter: Bool = false
     @State private var backupMessage: String?
     @State private var backupMessageStyle: DataMessageStyle = .info
@@ -164,7 +243,7 @@ struct DataView: View {
                     Text("Export to CSV")
                         .font(.title3)
                         .bold()
-                    Text("Share your data with other tools or spreadsheets by exporting every block, expense, and audit entry to a CSV you can open anywhere.")
+                    Text("Share your data with other tools or spreadsheets by exporting every block, expense, and audit entry to a CSV you can open anywhere. Use the checkboxes below to control which columns are included before tapping Export.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -174,6 +253,8 @@ struct DataView: View {
                     .font(.system(size: 36))
                     .foregroundColor(.accentColor)
             }
+
+            exportFieldSelection
 
             Button {
                 exportData()
@@ -195,6 +276,29 @@ struct DataView: View {
             }
         }
         .flexErrnCardStyle()
+    }
+
+    private var exportFieldSelection: some View {
+        let columns = [GridItem(.flexible()), GridItem(.flexible())]
+        return LazyVGrid(columns: columns, spacing: 12) {
+            ForEach(Self.exportFieldOrder) { field in
+            Toggle(isOn: Binding(
+                get: { selectedExportFields.contains(field) },
+                set: { isSelected in
+                    if isSelected {
+                        selectedExportFields.insert(field)
+                    } else {
+                        selectedExportFields.remove(field)
+                    }
+                }
+            )) {
+                Text(field.displayName)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+            }
+            .toggleStyle(CheckboxToggleStyle())
+            }
+        }
     }
 
     private var dataCard: some View {
@@ -314,33 +418,13 @@ struct DataView: View {
     }
 
     private func makeCSVText() -> String {
-        let header = [
-            "Block ID",
-            "Date",
-            "Duration Minutes",
-            "Status",
-            "Notes",
-            "Base Pay",
-            "Has Tips",
-            "Tips Amount",
-            "Gross Payout",
-            "Gross $/hr",
-            "Scheduled Start",
-            "Scheduled End",
-            "User Start Time",
-            "User Completion Time",
-            "Whole Miles",
-            "Rate Snapshot",
-            "Mileage Deduction",
-            "Expenses Total",
-            "Total Profit",
-            "Total Profit $/hr",
-            "Expenses",
-            "Audit Entries"
-        ]
+        let selectedFields = Self.exportFieldOrder.filter { selectedExportFields.contains($0) }
+        guard !selectedFields.isEmpty else { return "" }
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+
+        let headerRow = selectedFields.map { csvEscaped($0.displayName) }.joined(separator: ",")
 
         let rows = blocks.map { block -> String in
             let scheduledStart = block.startTime ?? block.date
@@ -353,35 +437,105 @@ struct DataView: View {
             let expensesTotal = block.additionalExpensesTotal
             let mileageDeduction = block.mileageDeduction
             let roundedMiles = block.roundedMiles
-            let values: [String] = [
-                block.id.uuidString,
-                isoString(for: block.date, formatter: formatter),
-                "\(block.durationMinutes)",
-                block.statusRaw,
-                block.notes ?? "",
-                decimalString(block.grossBase),
-                block.hasTips ? "true" : "false",
-                decimalString(block.tipsAmount ?? 0),
-                decimalString(grossPayout),
-                decimalString(grossPerHour),
-                isoString(for: scheduledStart, formatter: formatter),
-                isoString(for: scheduledEnd, formatter: formatter),
-                isoString(for: block.userStartTime, formatter: formatter),
-                isoString(for: block.userCompletionTime, formatter: formatter),
-                decimalString(roundedMiles),
-                decimalString(block.irsRateSnapshot),
-                decimalString(mileageDeduction),
-                decimalString(expensesTotal),
-                decimalString(totalProfit),
-                decimalString(profitPerHour),
-                jsonString(block.expenses.map { ExpenseCSV(categoryRaw: $0.categoryRaw, amount: $0.amount, note: $0.note, createdAt: $0.createdAt) }),
-                jsonString(block.auditEntries.map { AuditCSV(timestamp: $0.timestamp, actionRaw: $0.actionRaw, field: $0.field, oldValue: $0.oldValue, newValue: $0.newValue, note: $0.note) })
-            ]
+            let context = BlockCSVContext(
+                block: block,
+                scheduledStart: scheduledStart,
+                scheduledEnd: scheduledEnd,
+                durationHours: durationHours,
+                grossPayout: grossPayout,
+                grossPerHour: grossPerHour,
+                totalProfit: totalProfit,
+                profitPerHour: profitPerHour,
+                expensesTotal: expensesTotal,
+                mileageDeduction: mileageDeduction,
+                roundedMiles: roundedMiles
+            )
+
+            let values = selectedFields.map { fieldValue(for: $0, context: context, formatter: formatter) }
             return values.map(csvEscaped).joined(separator: ",")
         }
 
-        let combined = ([header.map(csvEscaped).joined(separator: ",")] + rows).joined(separator: "\n")
+        let combined = ([headerRow] + rows).joined(separator: "\n")
         return combined
+    }
+
+    private func fieldValue(for field: ExportField, context: BlockCSVContext, formatter: DateFormatter) -> String {
+        switch field {
+        case .blockID:
+            return context.block.id.uuidString
+        case .date:
+            return isoString(for: context.block.date, formatter: formatter)
+        case .durationMinutes:
+            return "\(context.block.durationMinutes)"
+        case .status:
+            return context.block.statusRaw
+        case .notes:
+            return context.block.notes ?? ""
+        case .basePay:
+            return decimalString(context.block.grossBase)
+        case .hasTips:
+            return context.block.hasTips ? "true" : "false"
+        case .tipsAmount:
+            return decimalString(context.block.tipsAmount ?? 0)
+        case .grossPayout:
+            return decimalString(context.grossPayout)
+        case .grossPerHour:
+            return decimalString(context.grossPerHour)
+        case .scheduledStart:
+            return isoString(for: context.scheduledStart, formatter: formatter)
+        case .scheduledEnd:
+            return isoString(for: context.scheduledEnd, formatter: formatter)
+        case .userStartTime:
+            return isoString(for: context.block.userStartTime, formatter: formatter)
+        case .userCompletionTime:
+            return isoString(for: context.block.userCompletionTime, formatter: formatter)
+        case .roundedMiles:
+            return decimalString(context.roundedMiles)
+        case .rateSnapshot:
+            return decimalString(context.block.irsRateSnapshot)
+        case .mileageDeduction:
+            return decimalString(context.mileageDeduction)
+        case .expensesTotal:
+            return decimalString(context.expensesTotal)
+        case .totalProfit:
+            return decimalString(context.totalProfit)
+        case .profitPerHour:
+            return decimalString(context.profitPerHour)
+        case .expenses:
+            return jsonString(context.block.expenses.map { ExpenseCSV(categoryRaw: $0.categoryRaw, amount: $0.amount, note: $0.note, createdAt: $0.createdAt) })
+        case .auditEntries:
+            return jsonString(context.block.auditEntries.map { AuditCSV(timestamp: $0.timestamp, actionRaw: $0.actionRaw, field: $0.field, oldValue: $0.oldValue, newValue: $0.newValue, note: $0.note) })
+        }
+    }
+
+    private struct BlockCSVContext {
+        let block: Block
+        let scheduledStart: Date
+        let scheduledEnd: Date
+        let durationHours: Decimal
+        let grossPayout: Decimal
+        let grossPerHour: Decimal
+        let totalProfit: Decimal
+        let profitPerHour: Decimal
+        let expensesTotal: Decimal
+        let mileageDeduction: Decimal
+        let roundedMiles: Decimal
+    }
+
+    private struct CheckboxToggleStyle: ToggleStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            Button {
+                configuration.isOn.toggle()
+            } label: {
+                HStack {
+                    Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
+                        .foregroundColor(configuration.isOn ? .accentColor : .secondary)
+                    configuration.label
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private func isoString(for date: Date?, formatter: DateFormatter) -> String {

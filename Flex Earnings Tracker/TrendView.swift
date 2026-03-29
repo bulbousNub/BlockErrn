@@ -342,7 +342,7 @@ struct TrendView: View {
             let label = frequency.label(for: start)
             let grossTotal = group.reduce(0) { $0 + $1.grossPayout }
             let tipTotal = group.reduce(0) { $0 + ($1.tipsAmount ?? 0) }
-            let totalMiles = group.reduce(0) { $0 + $1.miles }
+            let totalMiles = group.reduce(0) { $0 + $1.roundedMiles }
             let averageMiles = group.isEmpty ? 0 : totalMiles / Decimal(group.count)
             return PeriodStats(start: start, label: label, grossTotal: grossTotal, tipTotal: tipTotal, averageMiles: averageMiles, totalMiles: totalMiles, blocks: group)
         }
