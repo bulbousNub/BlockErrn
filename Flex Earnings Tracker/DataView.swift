@@ -98,6 +98,7 @@ struct DataView: View {
     @State private var exportMessage: String?
     @State private var exportMessageStyle: DataMessageStyle = .info
     @State private var lastBackupDate: Date?
+    @State private var useZipBackup: Bool = true
 
     var body: some View {
         NavigationStack {
@@ -141,6 +142,7 @@ struct DataView: View {
             }
             .onAppear {
                 loadLastBackupDate()
+                loadBackupFormatPreference()
             }
         }
     }
@@ -163,7 +165,7 @@ struct DataView: View {
                     .foregroundColor(.accentColor)
             }
 
-            HStack {
+            HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Last backup")
                         .font(.caption)
@@ -173,8 +175,9 @@ struct DataView: View {
                         .font(.headline)
                         .foregroundColor(backupStatusColor)
                 }
+                Spacer()
+                backupFormatToggle
             }
-
             Button {
                 backupData()
             } label: {
@@ -192,8 +195,27 @@ struct DataView: View {
                     .foregroundStyle(backupMessageStyle.color)
                     .multilineTextAlignment(.center)
             }
+            Text("JSON includes the payload plus inline receipt data; ZIP bundles the same JSON plus separate JPEG files.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
             .flexErrnCardStyle()
+    }
+
+    private var backupFormatToggle: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text("JSON")
+                .font(.subheadline)
+                .foregroundStyle(useZipBackup ? .secondary : .primary)
+            Toggle("", isOn: $useZipBackup)
+                .labelsHidden()
+                .tint(.accentColor)
+            Text("Zip")
+                .font(.subheadline)
+                .foregroundStyle(useZipBackup ? .primary : .secondary)
+        }
+        .onChange(of: useZipBackup) { storeBackupFormatPreference($0) }
     }
 
     private var importTile: some View {
@@ -329,7 +351,7 @@ struct DataView: View {
 
     private func backupData() {
         do {
-            let url = try createBackupFile()
+            let url = try createBackupFile(useZip: useZipBackup)
             shareableBackup = ShareableBackup(url: url)
             let now = Date()
             recordBackupDate(now)
@@ -346,6 +368,16 @@ struct DataView: View {
             lastBackupDate = stored
         } else {
             lastBackupDate = nil
+        }
+    }
+
+    private func storeBackupFormatPreference(_ useZip: Bool) {
+        UserDefaults.standard.set(useZip, forKey: Self.backupFormatKey)
+    }
+
+    private func loadBackupFormatPreference() {
+        if UserDefaults.standard.object(forKey: Self.backupFormatKey) != nil {
+            useZipBackup = UserDefaults.standard.bool(forKey: Self.backupFormatKey)
         }
     }
 
@@ -654,7 +686,7 @@ struct DataView: View {
         return BackupPayload(blocks: blockPayloads, settings: settingsPayloads)
     }
 
-    private func createBackupFile() throws -> URL {
+    private func createBackupFile(useZip: Bool) throws -> URL {
         let payload = makeBackupPayload()
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -662,6 +694,7 @@ struct DataView: View {
         let tempDir = FileManager.default.temporaryDirectory
         let jsonURL = tempDir.appendingPathComponent(Self.backupJSONFilename)
         try data.write(to: jsonURL, options: .atomic)
+        guard useZip else { return jsonURL }
         let zipURL = tempDir.appendingPathComponent(defaultBackupFilename())
         if FileManager.default.fileExists(atPath: zipURL.path) {
             try FileManager.default.removeItem(at: zipURL)
@@ -784,6 +817,7 @@ struct DataView: View {
         try context.save()
     }
     private static let backupJSONFilename = "FlexErrnBackup.json"
+    private static let backupFormatKey = "FlexErrnBackupFormatUseZip"
     private static let backupReceiptsFolder = "Receipts"
 }
 
