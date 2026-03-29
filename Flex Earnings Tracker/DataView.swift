@@ -19,6 +19,8 @@ struct DataView: View {
     @State private var backupMessageStyle: DataMessageStyle = .info
     @State private var importMessage: String?
     @State private var importMessageStyle: DataMessageStyle = .info
+    @State private var exportMessage: String?
+    @State private var exportMessageStyle: DataMessageStyle = .info
     @State private var lastBackupDate: Date?
 
     var body: some View {
@@ -29,6 +31,7 @@ struct DataView: View {
                 ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
                     dataCard
+                    exportTile
                     backupTile
                     importTile
                 }
@@ -55,9 +58,9 @@ struct DataView: View {
             ) { result in
                 switch result {
                 case .success(let url):
-                    setDataMessage("CSV ready: \(url.lastPathComponent)", style: .success)
+                    setExportMessage("CSV ready: \(url.lastPathComponent)", style: .success)
                 case .failure(let error):
-                    setDataMessage("CSV failed: \(error.localizedDescription)", style: .error)
+                    setExportMessage("CSV failed: \(error.localizedDescription)", style: .error)
                 }
             }
             .alert("Delete all saved data?", isPresented: $showClearConfirmation) {
@@ -163,6 +166,46 @@ struct DataView: View {
         .flexErrnCardStyle()
     }
 
+    private var exportTile: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Export to CSV")
+                        .font(.title3)
+                        .bold()
+                    Text("Share your data with other tools or spreadsheets by exporting every block, expense, and audit entry to a CSV you can open anywhere.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "doc.on.doc")
+                    .font(.system(size: 36))
+                    .foregroundColor(.accentColor)
+            }
+
+            Button {
+                exportData()
+            } label: {
+                Label("Export to CSV", systemImage: "square.and.arrow.up.on.square")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.accentColor)
+
+            if let message = exportMessage {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(exportMessageStyle.color)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .flexErrnCardStyle()
+    }
+
     private var dataCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -184,22 +227,14 @@ struct DataView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button {
-                csvDocument = CSVDocument(text: makeCSVText())
-                showCSVExporter = true
+            Button(role: .destructive) {
+                showClearConfirmation = true
             } label: {
-                Label("Export to CSV", systemImage: "square.and.arrow.up.on.square")
+                Label("Clear All Data", systemImage: "trash")
             }
             .buttonStyle(.borderedProminent)
             .buttonBorderShape(.capsule)
-            .tint(.accentColor)
-
-            if let message = dataMessage {
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(dataMessageStyle.color)
-                    .multilineTextAlignment(.center)
-            }
+            .tint(.red)
 
             Button(role: .destructive) {
                 showClearConfirmation = true
@@ -401,6 +436,17 @@ struct DataView: View {
     private func setDataMessage(_ text: String, style: DataMessageStyle) {
         dataMessage = text
         dataMessageStyle = style
+    }
+
+    private func setExportMessage(_ text: String, style: DataMessageStyle) {
+        exportMessage = text
+        exportMessageStyle = style
+    }
+
+    private func exportData() {
+        exportMessage = nil
+        csvDocument = CSVDocument(text: makeCSVText())
+        showCSVExporter = true
     }
 
     private func setImportMessage(_ text: String, style: DataMessageStyle) {
