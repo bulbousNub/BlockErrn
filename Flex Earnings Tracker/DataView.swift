@@ -305,30 +305,65 @@ struct DataView: View {
 
     private func makeCSVText() -> String {
         let header = [
-            "Block ID", "Date", "Start Time", "End Time", "Duration Minutes",
-            "Gross Base", "Has Tips", "Tips Amount", "Miles", "IRS Rate Snapshot",
-            "Status", "Notes", "Created At", "Updated At", "Expenses", "Audit Entries"
+            "Block ID",
+            "Date",
+            "Duration Minutes",
+            "Status",
+            "Notes",
+            "Base Pay",
+            "Has Tips",
+            "Tips Amount",
+            "Gross Payout",
+            "Gross $/hr",
+            "Scheduled Start",
+            "Scheduled End",
+            "User Start Time",
+            "User Completion Time",
+            "Whole Miles",
+            "Rate Snapshot",
+            "Mileage Deduction",
+            "Expenses Total",
+            "Total Profit",
+            "Total Profit $/hr",
+            "Expenses",
+            "Audit Entries"
         ]
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
 
         let rows = blocks.map { block -> String in
+            let scheduledStart = block.startTime ?? block.date
+            let scheduledEnd = block.endTime ?? scheduledStart.addingTimeInterval(TimeInterval(max(1, block.durationMinutes) * 60))
+            let grossPayout = block.grossPayout
+            let durationHours = Decimal(max(1, block.durationMinutes)) / 60
+            let grossPerHour = durationHours > 0 ? grossPayout / durationHours : grossPayout
+            let totalProfit = block.totalProfit
+            let profitPerHour = durationHours > 0 ? totalProfit / durationHours : totalProfit
+            let expensesTotal = block.additionalExpensesTotal
+            let mileageDeduction = block.mileageDeduction
+            let roundedMiles = block.roundedMiles
             let values: [String] = [
                 block.id.uuidString,
                 isoString(for: block.date, formatter: formatter),
-                isoString(for: block.startTime ?? block.date, formatter: formatter),
-                isoString(for: block.endTime ?? block.date.addingTimeInterval(TimeInterval(max(1, block.durationMinutes) * 60)), formatter: formatter),
                 "\(block.durationMinutes)",
+                block.statusRaw,
+                block.notes ?? "",
                 decimalString(block.grossBase),
                 block.hasTips ? "true" : "false",
                 decimalString(block.tipsAmount ?? 0),
-                decimalString(block.miles),
+                decimalString(grossPayout),
+                decimalString(grossPerHour),
+                isoString(for: scheduledStart, formatter: formatter),
+                isoString(for: scheduledEnd, formatter: formatter),
+                isoString(for: block.userStartTime, formatter: formatter),
+                isoString(for: block.userCompletionTime, formatter: formatter),
+                decimalString(roundedMiles),
                 decimalString(block.irsRateSnapshot),
-                block.statusRaw,
-                block.notes ?? "",
-                isoString(for: block.createdAt, formatter: formatter),
-                isoString(for: block.updatedAt, formatter: formatter),
+                decimalString(mileageDeduction),
+                decimalString(expensesTotal),
+                decimalString(totalProfit),
+                decimalString(profitPerHour),
                 jsonString(block.expenses.map { ExpenseCSV(categoryRaw: $0.categoryRaw, amount: $0.amount, note: $0.note, createdAt: $0.createdAt) }),
                 jsonString(block.auditEntries.map { AuditCSV(timestamp: $0.timestamp, actionRaw: $0.actionRaw, field: $0.field, oldValue: $0.oldValue, newValue: $0.newValue, note: $0.note) })
             ]
