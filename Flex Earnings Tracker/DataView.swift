@@ -600,7 +600,9 @@ struct DataView: View {
                     amount: expense.amount,
                     note: expense.note,
                     createdAt: expense.createdAt,
-                    updatedAt: expense.updatedAt
+                    updatedAt: expense.updatedAt,
+                    receiptFileName: expense.receiptFileName,
+                    receiptData: ReceiptStorage.loadData(named: expense.receiptFileName)
                 )
             },
                 auditEntries: block.auditEntries.map { audit in
@@ -683,6 +685,10 @@ struct DataView: View {
                     createdAt: expensePayload.createdAt,
                     updatedAt: expensePayload.updatedAt
                 )
+                if let data = expensePayload.receiptData {
+                    let savedFile = ReceiptStorage.save(data: data, fileName: expensePayload.receiptFileName)
+                    expense.receiptFileName = savedFile
+                }
                 block.expenses.append(expense)
             }
 
@@ -787,6 +793,8 @@ private struct ExpensePayload: Codable {
     let note: String?
     let createdAt: Date
     let updatedAt: Date?
+    let receiptFileName: String?
+    let receiptData: Data?
 }
 
 private struct AuditEntryPayload: Codable {

@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import CoreLocation
 import MapKit
+import UIKit
 
 struct BlockDetailView: View {
     @Environment(\.modelContext) private var context
@@ -319,6 +320,7 @@ struct BlockDetailView: View {
                             Button(role: .destructive) {
                                 if let idx = block.expenses.firstIndex(where: { $0.id == expense.id }) {
                                     let removed = block.expenses.remove(at: idx)
+                                    ReceiptStorage.delete(named: removed.receiptFileName)
                                     log(AuditAction.expenseRemoved, field: "expense", oldValue: removed.categoryRaw, newValue: nil)
                                     touch()
                                 }
@@ -508,6 +510,8 @@ struct AddExpenseSheet: View {
     @State private var selectedCategoryID: String = ExpenseCategoryDescriptor.defaultList.first?.id ?? ExpenseCategory.drinks.rawValue
     @State private var amount: Decimal = 0
     @State private var note: String = ""
+    @State private var receiptImage: UIImage?
+    @State private var showReceiptScanner = false
     @Query private var settings: [AppSettings]
     @Environment(\.colorScheme) private var colorScheme
 
@@ -517,10 +521,11 @@ struct AddExpenseSheet: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     header
-            compactInputs
-            noteCard
-            actionRow
-        }
+                    compactInputs
+                    noteCard
+                    receiptCard
+                    actionRow
+                }
                 .padding(.vertical, 16)
                 .padding(.horizontal, 16)
             }
@@ -529,6 +534,11 @@ struct AddExpenseSheet: View {
         .presentationDragIndicator(.visible)
         .onAppear { ensureValidSelection() }
         .onChange(of: categoryIDs) { _ in ensureValidSelection() }
+        .sheet(isPresented: $showReceiptScanner) {
+            ReceiptScanner(isPresented: $showReceiptScanner, onComplete: { image in
+                handleCapturedReceipt(image)
+            }, onCancel: { })
+        }
     }
 
     private var header: some View {
@@ -591,6 +601,53 @@ struct AddExpenseSheet: View {
         .flexErrnCardStyle()
     }
 
+    private var receiptCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Receipt")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    showReceiptScanner = true
+                } label: {
+                    Text(receiptImage == nil ? "Scan Receipt" : "Update Receipt")
+                        .font(.subheadline)
+                        .bold()
+                }
+            }
+            Group {
+                if let preview = receiptImage {
+                    Image(uiImage: preview)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 160)
+                        .cornerRadius(16)
+                } else {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.05))
+                        .frame(height: 120)
+                        .overlay(
+                            Text("Keeping the receipt here helps you recall the purchase.")
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.secondary)
+                                .padding()
+                        )
+                }
+            }
+            if receiptImage != nil {
+                Button("Remove receipt") {
+                    removeReceipt()
+                }
+                .font(.footnote)
+                .foregroundColor(.red)
+            }
+        }
+        .padding()
+        .flexErrnCardStyle()
+    }
+
     private var actionRow: some View {
         HStack(spacing: 12) {
             Button("Cancel") {
@@ -610,10 +667,22 @@ struct AddExpenseSheet: View {
     private func add() {
         let categoryRaw = categoryIDs.contains(selectedCategoryID) ? selectedCategoryID : defaultCategoryID
         let e = Expense(categoryRaw: categoryRaw, amount: amount, note: note)
+        if let image = receiptImage, let fileName = ReceiptStorage.save(image: image) {
+            e.receiptFileName = fileName
+        }
         block.expenses.append(e)
         let entry = AuditEntry(action: AuditAction.expenseAdded, field: "expense", newValue: categoryRaw)
         block.auditEntries.append(entry)
+        receiptImage = nil
         dismiss()
+    }
+
+    private func handleCapturedReceipt(_ image: UIImage) {
+        receiptImage = image
+    }
+
+    private func removeReceipt() {
+        receiptImage = nil
     }
 
     private var categories: [ExpenseCategoryDescriptor] {
@@ -811,25 +880,56 @@ private struct ExpenseDetailView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
-
+    @State private var receiptPreview: UIImage?
+    @State private var showReceiptScanner = false
+    @State private var showReceiptFullscreen = false
     var body: some View {
         ZStack {
             FlexErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
-                detailCard
-            }
+                VStack(spacing: 24) {
+            detailCard
+        }
                 .padding()
                 .padding(.bottom, 32)
             }
         }
         .navigationTitle("Expense Detail")
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Done") {
-                    dismiss()
+        .onAppear {
+            receiptPreview = ReceiptStorage.loadImage(named: expense.receiptFileName)
+        }
+        .onChange(of: expense.receiptFileName) { newValue in
+            receiptPreview = ReceiptStorage.loadImage(named: newValue)
+        }
+        .sheet(isPresented: $showReceiptScanner) {
+            ReceiptScanner(isPresented: $showReceiptScanner, onComplete: { image in
+                handleCapturedReceipt(image)
+            }, onCancel: { })
+        }
+        .fullScreenCover(isPresented: $showReceiptFullscreen) {
+            if let preview = receiptPreview {
+                ZStack {
+                    Color.black
+                        .ignoresSafeArea()
+                    Image(uiImage: preview)
+                        .resizable()
+                        .scaledToFit()
+                        .padding()
+                        .background(.black)
+                        .cornerRadius(24)
+                        .shadow(radius: 30)
+                        .onTapGesture {
+                            showReceiptFullscreen = false
+                        }
+                }
+            } else {
+                Color.clear.onTapGesture {
+                    showReceiptFullscreen = false
                 }
             }
+        }
+        .onDisappear {
+            save()
         }
     }
 
@@ -837,6 +937,7 @@ private struct ExpenseDetailView: View {
         VStack(spacing: 16) {
             heroFields
             exclusionToggle
+            receiptSection
             noteField
             timestampRow
         }
@@ -895,6 +996,61 @@ private struct ExpenseDetailView: View {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
                 )
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+
+    private var receiptSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Receipt")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Spacer()
+                Button {
+                    showReceiptScanner = true
+                } label: {
+                    Text(receiptPreview == nil ? "Scan Receipt" : "Retake Receipt")
+                        .font(.subheadline)
+                        .bold()
+                }
+            }
+            Group {
+                if let preview = receiptPreview {
+                    Image(uiImage: preview)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 180)
+                        .cornerRadius(16)
+                        .onTapGesture {
+                            showReceiptFullscreen = true
+                        }
+                } else {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.05))
+                        .frame(height: 120)
+                        .overlay(
+                            Text("Receipts stay with the expense for later reference.")
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.secondary)
+                                .padding()
+                        )
+                }
+            }
+            if receiptPreview != nil {
+                Button("Delete receipt") {
+                    removeReceipt()
+                }
+                .font(.footnote)
+                .foregroundColor(.red)
+            }
         }
         .padding()
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -986,6 +1142,24 @@ private struct ExpenseDetailView: View {
     private func save() {
         expense.updatedAt = Date()
         try? context.save()
+    }
+
+    private func handleCapturedReceipt(_ image: UIImage) {
+        if let existing = expense.receiptFileName {
+            ReceiptStorage.delete(named: existing)
+        }
+        if let fileName = ReceiptStorage.save(image: image) {
+            expense.receiptFileName = fileName
+            receiptPreview = image
+            save()
+        }
+    }
+
+    private func removeReceipt() {
+        ReceiptStorage.delete(named: expense.receiptFileName)
+        expense.receiptFileName = nil
+        receiptPreview = nil
+        save()
     }
 
 }

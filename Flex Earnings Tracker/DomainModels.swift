@@ -112,24 +112,27 @@ public final class Expense {
     public var note: String?
     public var createdAt: Date
     public var updatedAt: Date?
+    public var receiptFileName: String?
     public var block: Block?
 
-    public init(id: UUID = UUID(), category: ExpenseCategory, amount: Decimal, note: String? = nil, createdAt: Date = Date(), updatedAt: Date? = nil) {
+    public init(id: UUID = UUID(), category: ExpenseCategory, amount: Decimal, note: String? = nil, createdAt: Date = Date(), updatedAt: Date? = nil, receiptFileName: String? = nil) {
         self.id = id
         self.categoryRaw = category.rawValue
         self.amount = amount
         self.note = note
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.receiptFileName = receiptFileName
     }
 
-    public init(id: UUID = UUID(), categoryRaw: String, amount: Decimal, note: String? = nil, createdAt: Date = Date(), updatedAt: Date? = nil) {
+    public init(id: UUID = UUID(), categoryRaw: String, amount: Decimal, note: String? = nil, createdAt: Date = Date(), updatedAt: Date? = nil, receiptFileName: String? = nil) {
         self.id = id
         self.categoryRaw = categoryRaw
         self.amount = amount
         self.note = note
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.receiptFileName = receiptFileName
     }
 
     public var category: ExpenseCategory {
