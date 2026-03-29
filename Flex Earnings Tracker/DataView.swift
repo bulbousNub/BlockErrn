@@ -594,14 +594,15 @@ struct DataView: View {
                 createdAt: block.createdAt,
                 updatedAt: block.updatedAt,
                 expenses: block.expenses.map { expense in
-                    ExpensePayload(
-                        id: expense.id,
-                        categoryRaw: expense.categoryRaw,
-                        amount: expense.amount,
-                        note: expense.note,
-                        createdAt: expense.createdAt
-                    )
-                },
+                ExpensePayload(
+                    id: expense.id,
+                    categoryRaw: expense.categoryRaw,
+                    amount: expense.amount,
+                    note: expense.note,
+                    createdAt: expense.createdAt,
+                    updatedAt: expense.updatedAt
+                )
+            },
                 auditEntries: block.auditEntries.map { audit in
                     AuditEntryPayload(
                         id: audit.id,
@@ -679,7 +680,8 @@ struct DataView: View {
                     category: category,
                     amount: expensePayload.amount,
                     note: expensePayload.note,
-                    createdAt: expensePayload.createdAt
+                    createdAt: expensePayload.createdAt,
+                    updatedAt: expensePayload.updatedAt
                 )
                 block.expenses.append(expense)
             }
@@ -784,6 +786,7 @@ private struct ExpensePayload: Codable {
     let amount: Decimal
     let note: String?
     let createdAt: Date
+    let updatedAt: Date?
 }
 
 private struct AuditEntryPayload: Codable {

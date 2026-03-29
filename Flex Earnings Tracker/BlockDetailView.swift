@@ -259,28 +259,59 @@ struct BlockDetailView: View {
                 Text("No expenses yet")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(block.expenses, id: \.id) { e in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(categoryName(for: e.categoryRaw))
-                            if let note = e.note, !note.isEmpty {
-                                Text(note).font(.caption).foregroundStyle(.secondary)
+                VStack(spacing: 12) {
+                    ForEach($block.expenses, id: \.id) { $expense in
+                        NavigationLink {
+                            ExpenseDetailView(expense: $expense, categoryDescriptors: categoryDescriptors)
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(categoryName(for: expense.categoryRaw))
+                                        .font(.headline)
+                                    if let note = expense.note, !note.isEmpty {
+                                        Text(note)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                    }
+                                }
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text(formatCurrency(expense.amount))
+                                        .font(.headline)
+                                    if ExpenseCategory(rawValue: expense.categoryRaw)?.excludedFromTotals == true {
+                                        Text("Excluded")
+                                            .font(.caption2)
+                                            .padding(4)
+                                            .background(Color.gray.opacity(0.2))
+                                            .cornerRadius(4)
+                                    }
+                                    Text(Self.tileTimeFormatter.string(from: expense.createdAt))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    if let updated = expense.updatedAt, updated > expense.createdAt {
+                                        Text("Updated \(Self.tileTimeFormatter.string(from: updated))")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(colorScheme == .light ? .black : .secondary)
                             }
+                            .contentShape(Rectangle())
+                            .padding()
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
-                        Spacer()
-                        Text(formatCurrency(e.amount))
-                        if ExpenseCategory(rawValue: e.categoryRaw)?.excludedFromTotals == true {
-                            Text("Excluded").font(.caption2).padding(4).background(Color.gray.opacity(0.2)).cornerRadius(4)
+                        .buttonStyle(.plain)
+                        .swipeActions {
+                            Button(role: .destructive) {
+                                if let idx = block.expenses.firstIndex(where: { $0.id == expense.id }) {
+                                    let removed = block.expenses.remove(at: idx)
+                                    log(AuditAction.expenseRemoved, field: "expense", oldValue: removed.categoryRaw, newValue: nil)
+                                    touch()
+                                }
+                            } label: { Label("Delete", systemImage: "trash") }
                         }
-                    }
-                    .swipeActions {
-                        Button(role: .destructive) {
-                            if let idx = block.expenses.firstIndex(where: { $0.id == e.id }) {
-                                let removed = block.expenses.remove(at: idx)
-                                log(AuditAction.expenseRemoved, field: "expense", oldValue: removed.categoryRaw, newValue: nil)
-                                touch()
-                            }
-                        } label: { Label("Delete", systemImage: "trash") }
                     }
                 }
             }
@@ -344,6 +375,13 @@ struct BlockDetailView: View {
     private func categoryName(for raw: String) -> String {
         categoryDescriptors.first(where: { $0.id == raw })?.name ?? raw.capitalized
     }
+
+    private static let tileTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter
+    }()
 
     private var isTrackingActive: Bool {
         mileageTracker.isTracking && mileageTracker.currentBlockID == block.id
@@ -728,6 +766,191 @@ struct LiquidNotesField: View {
                     .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
             )
     }
+}
+
+private struct ExpenseDetailView: View {
+    @Binding var expense: Expense
+    let categoryDescriptors: [ExpenseCategoryDescriptor]
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    header
+                    detailCard
+                }
+                .padding()
+                .padding(.bottom, 32)
+            }
+        }
+        .navigationTitle("Expense")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") {
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Expense details")
+                .font(.title2)
+                .bold()
+            Text("Adjust the category, amount, or note to keep totals accurate.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var detailCard: some View {
+        VStack(spacing: 16) {
+            heroFields
+            noteField
+            timestampRow
+        }
+        .padding()
+        .flexErrnCardStyle()
+    }
+
+    private var heroFields: some View {
+        HStack(spacing: 12) {
+            heroBlock(title: "Category") {
+                Menu {
+                    ForEach(categoryDescriptors) { descriptor in
+                        Button(descriptor.name) {
+                            categoryBinding.wrappedValue = descriptor.id
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(selectedCategoryName)
+                            .font(.headline)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .tint(.accentColor)
+            }
+
+            heroBlock(title: "Amount") {
+                DecimalField("Amount", prefix: "$", value: amountBinding)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private var noteField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Note")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            TextField("Add a note", text: noteBinding)
+                .textFieldStyle(.plain)
+                .padding(12)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
+                )
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+
+    private var timestampRow: some View {
+        HStack {
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("Created at \(Self.detailTimestampFormatter.string(from: expense.createdAt))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                if let updated = expense.updatedAt, updated > expense.createdAt {
+                    Text("Last Modified at \(Self.detailTimestampFormatter.string(from: updated))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private func heroBlock<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            content()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
+        )
+    }
+
+    private var selectedCategoryName: String {
+        categoryDescriptors.first(where: { $0.id == expense.categoryRaw })?.name ?? expense.categoryRaw.capitalized
+    }
+
+    private var categoryBinding: Binding<String> {
+        Binding(
+            get: { expense.categoryRaw },
+            set: { newValue in
+                expense.categoryRaw = newValue
+                save()
+            }
+        )
+    }
+
+    private var amountBinding: Binding<Decimal> {
+        Binding(
+            get: { expense.amount },
+            set: { newValue in
+                expense.amount = newValue
+                save()
+            }
+        )
+    }
+
+    private var noteBinding: Binding<String> {
+        Binding(
+            get: { expense.note ?? "" },
+            set: { newValue in
+                expense.note = newValue.isEmpty ? nil : newValue
+                save()
+            }
+        )
+    }
+
+    private func save() {
+        expense.updatedAt = Date()
+        try? context.save()
+    }
+
+    private static let detailTimestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM d, yyyy 'at' h:mm a"
+        return formatter
+    }()
 }
 
     private struct RouteMapView: UIViewRepresentable {
