@@ -407,17 +407,31 @@ struct CalculatorView: View {
             Divider()
             VStack(spacing: 16) {
                 HStack {
-                    Text("Block window")
+                    Text("Block Schedule")
                         .font(.headline)
                     Spacer()
                     Picker("", selection: $dateMode) {
                         Text("Today").tag(0)
-                        Text("Future").tag(1)
+                        Text("Tomorrow").tag(1)
+                        Text("Future").tag(2)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 180)
+                    .frame(width: 220)
+                    .onChange(of: dateMode) { mode in
+                        let calendar = Calendar.current
+                        switch mode {
+                        case 0:
+                            alignScheduleDate(with: Date())
+                        case 1:
+                            let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+                            alignScheduleDate(with: tomorrow)
+                        default:
+                            let validFuture = selectedDate > Date() ? selectedDate : (calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date())
+                            alignScheduleDate(with: validFuture)
+                        }
+                    }
                 }
-                if dateMode == 1 {
+                if dateMode == 2 {
                     DatePicker("Select date", selection: $selectedDate, in: Date()..., displayedComponents: .date)
                         .datePickerStyle(.graphical)
                         .labelsHidden()
@@ -963,7 +977,7 @@ struct CalculatorView: View {
                 guard start > now, start <= windowEnd else { return false }
                 return !activeIDs.contains(block.id)
             }
-            .sorted { startDate(for: $0) < startDate(for: $1) }
+        .sorted { startDate(for: $0) < startDate(for: $1) }
     }
 
     private var activeBlocks: [Block] {
@@ -977,7 +991,7 @@ struct CalculatorView: View {
                 let isForced = workModeCoordinator.forcedActiveBlockIDs.contains(block.id)
                 return (start <= window && end > now) || isForced
             }
-        .sorted { startDate(for: $0) < startDate(for: $1) }
+            .sorted { startDate(for: $0) < startDate(for: $1) }
     }
 
     private func shouldShowAcceptedAlert(for block: Block) -> Bool {
@@ -994,6 +1008,14 @@ struct CalculatorView: View {
             return false
         }
         return true
+    }
+
+    private func alignScheduleDate(with date: Date) {
+        let previousStart = selectedStartTime
+        let previousEnd = selectedEndTime
+        selectedDate = date
+        selectedStartTime = combine(date: date, time: previousStart)
+        selectedEndTime = combine(date: date, time: previousEnd)
     }
 
     private func startDate(for block: Block) -> Date {
