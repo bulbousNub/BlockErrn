@@ -232,10 +232,8 @@ struct CalculatorView: View {
                     if shouldShowPlanCard {
                         heroCard
                     }
-                    earningsCard
-                    scheduleCard
+                    calculateAndAcceptCard
                     remindersCard
-                    actionRow
                 }
             }
             .padding(.horizontal)
@@ -253,7 +251,7 @@ struct CalculatorView: View {
             .onChange(of: selectedMinutes) { _ in
                 syncEndToDuration()
             }
-            .alert("Block accepted", isPresented: $showAcceptedAlert) {
+            .alert("Block Accepted", isPresented: $showAcceptedAlert) {
                 Button("View in Log") {
                     tabSelectionState.selectedTab = 1
                 }
@@ -343,10 +341,10 @@ struct CalculatorView: View {
         try? context.save()
     }
 
-    private var earningsCard: some View {
+    private var calculateAndAcceptCard: some View {
         VStack(spacing: 16) {
             HStack {
-                Text("Calculator")
+                Text("Calculate & Accept Block")
                     .font(.headline)
                 Spacer()
             }
@@ -406,49 +404,57 @@ struct CalculatorView: View {
                     .font(.caption2)
                     .foregroundStyle(.red)
             }
-        }
-        .flexErrnCardStyle()
-    }
-
-    private var scheduleCard: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Block window")
+            Divider()
+            VStack(spacing: 16) {
+                HStack {
+                    Text("Block window")
+                        .font(.headline)
+                    Spacer()
+                    Picker("", selection: $dateMode) {
+                        Text("Today").tag(0)
+                        Text("Future").tag(1)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 180)
+                }
+                if dateMode == 1 {
+                    DatePicker("Select date", selection: $selectedDate, in: Date()..., displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity)
+                        .tint(datePickerControlColor)
+                }
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("Start time")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        DatePicker("", selection: Binding(get: { selectedStartTime }, set: startTimeChanged), displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                    }
+                    Spacer()
+                    VStack(alignment: .leading) {
+                        Text("End time")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        DatePicker("", selection: Binding(get: { selectedEndTime }, set: endTimeChanged), displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                    }
+                }
+            }
+            Button {
+                acceptBlock()
+            } label: {
+                Text("Accept Block")
                     .font(.headline)
-                Spacer()
-                Picker("", selection: $dateMode) {
-                    Text("Today").tag(0)
-                    Text("Future").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 180)
-            }
-            if dateMode == 1 {
-                DatePicker("Select date", selection: $selectedDate, in: Date()..., displayedComponents: .date)
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
                     .frame(maxWidth: .infinity)
-                    .tint(datePickerControlColor)
+                    .padding()
             }
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Start time")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    DatePicker("", selection: Binding(get: { selectedStartTime }, set: startTimeChanged), displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                }
-                Spacer()
-                VStack(alignment: .leading) {
-                    Text("End time")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    DatePicker("", selection: Binding(get: { selectedEndTime }, set: endTimeChanged), displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                }
-            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .buttonBorderShape(.capsule)
         }
         .flexErrnCardStyle()
     }
@@ -466,20 +472,6 @@ struct CalculatorView: View {
         }
         .frame(maxWidth: .infinity)
         .flexErrnCardStyle()
-    }
-
-    private var actionRow: some View {
-        Button {
-            acceptBlock()
-        } label: {
-            Text("Accept Block")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .buttonBorderShape(.capsule)
     }
 
     private func sectionBlockList(
@@ -914,7 +906,7 @@ struct CalculatorView: View {
         NotificationManager.shared.scheduleBlockReminders(for: block, includePreReminder: includePreReminderPreference)
         try? context.save()
         acceptedBlock = block
-        showAcceptedAlert = true
+        showAcceptedAlert = shouldShowAcceptedAlert(for: block)
         grossBaseText = ""
         selectedHours = 0
         selectedMinutes = 0
@@ -963,7 +955,7 @@ struct CalculatorView: View {
     private var upcomingBlocks: [Block] {
         let now = Date()
         let calendar = Calendar.current
-        let windowEnd = calendar.date(byAdding: .day, value: 3, to: now) ?? now
+        let windowEnd = calendar.date(byAdding: .day, value: 2, to: now) ?? now
         let activeIDs = Set(activeBlocks.map { $0.id })
         return blocks
             .filter { block in
@@ -985,7 +977,23 @@ struct CalculatorView: View {
                 let isForced = workModeCoordinator.forcedActiveBlockIDs.contains(block.id)
                 return (start <= window && end > now) || isForced
             }
-            .sorted { startDate(for: $0) < startDate(for: $1) }
+        .sorted { startDate(for: $0) < startDate(for: $1) }
+    }
+
+    private func shouldShowAcceptedAlert(for block: Block) -> Bool {
+        let now = Date()
+        let start = startDate(for: block)
+        let end = endDate(for: block)
+        let activeWindow = now.addingTimeInterval(45 * 60)
+        if start <= activeWindow && end > now {
+            return false
+        }
+        let calendar = Calendar.current
+        let upcomingWindow = calendar.date(byAdding: .day, value: 2, to: now) ?? now
+        if start > now && start <= upcomingWindow {
+            return false
+        }
+        return true
     }
 
     private func startDate(for block: Block) -> Date {
