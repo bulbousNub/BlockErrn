@@ -679,6 +679,11 @@ struct DataView: View {
                 roundingScale: setting.roundingScale,
                 preferredAppearanceRaw: setting.preferredAppearanceRaw,
                 includePreReminder: setting.includePreReminder,
+                hasDismissedPlanCard: setting.hasDismissedPlanCard,
+                hasCompletedOnboarding: setting.hasCompletedOnboarding,
+                reminderBeforeStartMinutes: setting.reminderBeforeStartMinutes,
+                reminderBeforeEndMinutes: setting.reminderBeforeEndMinutes,
+                tipReminderHours: setting.tipReminderHours,
                 expenseCategoryDescriptors: setting.expenseCategoryDescriptors
             )
         }
@@ -808,7 +813,12 @@ struct DataView: View {
                 currencyCode: settingPayload.currencyCode,
                 roundingScale: settingPayload.roundingScale,
                 includePreReminder: settingPayload.includePreReminder ?? true,
-                expenseCategories: settingPayload.expenseCategoryDescriptors
+                hasDismissedPlanCard: settingPayload.hasDismissedPlanCard ?? false,
+                expenseCategories: settingPayload.expenseCategoryDescriptors,
+                hasCompletedOnboarding: settingPayload.hasCompletedOnboarding ?? false,
+                reminderBeforeStartMinutes: settingPayload.reminderBeforeStartMinutes ?? 45,
+                reminderBeforeEndMinutes: settingPayload.reminderBeforeEndMinutes ?? 15,
+                tipReminderHours: settingPayload.tipReminderHours ?? 24
             )
             setting.preferredAppearanceRaw = settingPayload.preferredAppearanceRaw
             context.insert(setting)
@@ -905,6 +915,11 @@ private struct AppSettingsPayload: Codable {
     let roundingScale: Int
     let preferredAppearanceRaw: String?
     let includePreReminder: Bool?
+    let hasDismissedPlanCard: Bool?
+    let hasCompletedOnboarding: Bool?
+    let reminderBeforeStartMinutes: Int?
+    let reminderBeforeEndMinutes: Int?
+    let tipReminderHours: Int?
     let expenseCategoryDescriptors: [ExpenseCategoryDescriptor]?
 }
 

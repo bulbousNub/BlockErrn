@@ -23,6 +23,10 @@ struct CalculatorView: View {
     @State private var showAcceptedAlert: Bool = false
     @State private var acceptedBlock: Block? = nil
     @State private var currentTime: Date = Date()
+    @State private var startReminderEnabled: Bool = true
+    @State private var preEndReminderEnabled: Bool = true
+    @State private var endReminderEnabled: Bool = true
+    @State private var tipReminderEnabled: Bool = false
     @State private var workModeBlock: Block? = nil
     @State private var workModeCollapsed: Bool = false
     @State private var showWorkModeExpenseSheet: Bool = false
@@ -182,38 +186,27 @@ struct CalculatorView: View {
             }
         }
 
-    private var includePreReminderBinding: Binding<Bool> {
-        Binding(
-            get: { settings.first?.includePreReminder ?? true },
-            set: { newValue in
-                guard let setting = settings.first else { return }
-                setting.includePreReminder = newValue
-                try? context.save()
-            }
-        )
-    }
-
-    private var includePreReminderPreference: Bool {
-        settings.first?.includePreReminder ?? true
-    }
-
-    private var reminderDescription: String {
-        if includePreReminderPreference {
-            return "FlexErrn will remind you 15 minutes before your block ends and once more when the block finishes so you remember to stop GPS tracking."
-        } else {
-            return "FlexErrn will only remind you at the scheduled block end time to stop GPS tracking."
-        }
-    }
-
     private var datePickerControlColor: Color {
         colorScheme == .light ? .primary : .accentColor
+    }
+
+    private var reminderBeforeStartMinutes: Int {
+        settings.first?.reminderBeforeStartMinutes ?? 45
+    }
+
+    private var reminderBeforeEndMinutes: Int {
+        settings.first?.reminderBeforeEndMinutes ?? 15
+    }
+
+    private var tipReminderHourCount: Int {
+        settings.first?.tipReminderHours ?? 24
     }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 FlexErrnTheme.backgroundGradient.ignoresSafeArea()
-        ScrollView(showsIndicators: false) {
+                ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 if !activeBlocks.isEmpty {
                     sectionBlockList(
@@ -233,7 +226,6 @@ struct CalculatorView: View {
                         heroCard
                     }
                     calculateAndAcceptCard
-                    remindersCard
                 }
             }
             .padding(.horizontal)
@@ -244,7 +236,10 @@ struct CalculatorView: View {
                 }
             }
             .navigationTitle("FlexErrn")
-            .onAppear { startTimer() }
+            .onAppear {
+                startTimer()
+                preEndReminderEnabled = settings.first?.includePreReminder ?? true
+            }
             .onChange(of: selectedHours) { _ in
                 syncEndToDuration()
             }
@@ -457,6 +452,7 @@ struct CalculatorView: View {
                             .labelsHidden()
                     }
                 }
+                reminderToggleGrid
             }
             Button {
                 acceptBlock()
@@ -473,19 +469,46 @@ struct CalculatorView: View {
         .flexErrnCardStyle()
     }
 
-    private var remindersCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Reminders")
-                .font(.headline)
-            Text(reminderDescription)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Toggle("Include 15-minute reminder", isOn: includePreReminderBinding)
-                .labelsHidden()
+    private var reminderToggleGrid: some View {
+        let columns = [GridItem(.flexible()), GridItem(.flexible())]
+        return LazyVGrid(columns: columns, spacing: 8) {
+            reminderToggle(
+                title: "\(reminderBeforeStartMinutes) Minutes Before Start",
+                isOn: $startReminderEnabled
+            )
+            reminderToggle(
+                title: "\(reminderBeforeEndMinutes) Minutes Before End",
+                isOn: $preEndReminderEnabled
+            )
+            reminderToggle(
+                title: "Reminder at Block End",
+                isOn: $endReminderEnabled
+            )
+            reminderToggle(
+                title: "\(tipReminderHourCount)-hour Tip Reminder",
+                isOn: $tipReminderEnabled,
+                disabled: !hasTipsOnHome
+            )
         }
+    }
+
+    private func reminderToggle(title: String, isOn: Binding<Bool>, disabled: Bool = false) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(disabled ? .secondary : .primary)
+                .multilineTextAlignment(.leading)
+        }
+        .toggleStyle(.switch)
+        .disabled(disabled)
+        .opacity(disabled ? 0.6 : 1)
+        .padding(12)
         .frame(maxWidth: .infinity)
-        .flexErrnCardStyle()
+        .background(.ultraThinMaterial.opacity(disabled ? 0.4 : 0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(disabled ? 0.15 : 0.25), lineWidth: 1)
+        )
     }
 
     private func sectionBlockList(
@@ -917,7 +940,17 @@ struct CalculatorView: View {
         block.hasTips = hasTipsOnHome
         block.auditEntries.append(AuditEntry(action: AuditAction.created, note: "Block accepted from calculator"))
         context.insert(block)
-        NotificationManager.shared.scheduleBlockReminders(for: block, includePreReminder: includePreReminderPreference)
+        let reminderConfig = NotificationManager.ReminderConfiguration(
+            startMinutes: reminderBeforeStartMinutes,
+            preEndMinutes: reminderBeforeEndMinutes,
+            tipHours: tipReminderHourCount,
+            startEnabled: startReminderEnabled,
+            preEndEnabled: preEndReminderEnabled,
+            endEnabled: endReminderEnabled,
+            tipEnabled: tipReminderEnabled,
+            hasTips: hasTipsOnHome
+        )
+        NotificationManager.shared.scheduleBlockReminders(for: block, config: reminderConfig)
         try? context.save()
         acceptedBlock = block
         showAcceptedAlert = shouldShowAcceptedAlert(for: block)

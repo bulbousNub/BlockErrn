@@ -115,10 +115,23 @@ struct NewBlockSheet: View {
         }
         block.auditEntries.append(AuditEntry(action: AuditAction.created, note: "Block added manually"))
         context.insert(block)
-        let includePreReminder = settings.first?.includePreReminder ?? true
-        NotificationManager.shared.scheduleBlockReminders(for: block, includePreReminder: includePreReminder)
+        NotificationManager.shared.scheduleBlockReminders(for: block, config: defaultReminderConfiguration)
         try? context.save()
         dismiss()
+    }
+
+    private var defaultReminderConfiguration: NotificationManager.ReminderConfiguration {
+        let setting = settings.first
+        return NotificationManager.ReminderConfiguration(
+            startMinutes: setting?.reminderBeforeStartMinutes ?? 45,
+            preEndMinutes: setting?.reminderBeforeEndMinutes ?? 15,
+            tipHours: setting?.tipReminderHours ?? 24,
+            startEnabled: true,
+            preEndEnabled: true,
+            endEnabled: true,
+            tipEnabled: hasTips,
+            hasTips: hasTips
+        )
     }
 
     private var totalDurationMinutes: Int {

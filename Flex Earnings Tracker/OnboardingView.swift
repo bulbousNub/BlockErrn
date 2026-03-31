@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CoreLocation
+import CoreMotion
 import UIKit
 
 struct OnboardingView: View {
@@ -12,8 +13,9 @@ struct OnboardingView: View {
 
     @State private var notificationPermissionGranted = false
     @State private var currentStep: Int = 0
+    @State private var motionPermissionGranted = CMMotionActivityManager.authorizationStatus() == .authorized
 
-    private let steps = 4
+    private let steps = 5
 
     var body: some View {
         ZStack {
@@ -54,6 +56,19 @@ struct OnboardingView: View {
         .onChange(of: notificationPermissionGranted) { granted in
             if granted && currentStep == 1 {
                 currentStep = 2
+            }
+        }
+        .onChange(of: motionPermissionGranted) { granted in
+            if granted && currentStep == steps - 1 {
+                currentStep = steps - 1
+            }
+        }
+        .onReceive(mileageTracker.$motionAuthorizationStatus) { status in
+            motionPermissionGranted = (status == .authorized)
+        }
+        .onReceive(mileageTracker.$authorizationStatus) { status in
+            if status == .authorizedAlways && currentStep == 3 {
+                currentStep = 4
             }
         }
     }
@@ -148,6 +163,34 @@ struct OnboardingView: View {
         }
     }
 
+    private var motionStep: some View {
+        VStack(spacing: 12) {
+            iconBadge("car.fill")
+            Text("Drive-only mileage")
+                .font(.title2)
+                .bold()
+                .foregroundColor(.primary)
+            Text("Give FlexErrn access to motion data so it can tell when you’re actually in a vehicle, keeping the IRS mileage clean.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button(action: requestMotionAuthorization) {
+                Label(motionPermissionGranted ? "Motion enabled" : "Allow motion tracking", systemImage: motionPermissionGranted ? "checkmark.car" : "car")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(motionPermissionGranted ? Color(.systemGreen) : Color(.systemBlue))
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+            }
+            .disabled(motionPermissionGranted || !CMMotionActivityManager.isActivityAvailable())
+            Text(motionStatusMessage)
+                .font(.caption2)
+                .foregroundStyle(motionPermissionGranted ? .green : .secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
+        }
+    }
+
     @ViewBuilder private func stepContent(for step: Int) -> some View {
         switch step {
         case 0:
@@ -156,8 +199,12 @@ struct OnboardingView: View {
             introStep
         case 2:
             notificationStep
-        default:
+        case 3:
             locationStep
+        case 4:
+            motionStep
+        default:
+            motionStep
         }
     }
 
@@ -191,6 +238,10 @@ struct OnboardingView: View {
         mileageTracker.requestAuthorization()
     }
 
+    private func requestMotionAuthorization() {
+        mileageTracker.requestMotionAuthorization()
+    }
+
     private func completeOnboarding() {
         appSettings.hasCompletedOnboarding = true
         try? context.save()
@@ -206,6 +257,19 @@ struct OnboardingView: View {
             return "Background GPS is ready, so FlexErrn can keep counting miles even when the app leaves the foreground."
         } else {
             return "We might not track mileage properly unless location is allowed always. Tap the button above to enable full tracking."
+        }
+    }
+
+    private var motionStatusMessage: String {
+        switch mileageTracker.motionAuthorizationStatus {
+        case .authorized:
+            return "Motion updates are enabled, so we only count the time you are actually driving."
+        case .denied, .restricted:
+            return "Motion tracking is blocked. Open Settings → FlexErrn to allow vehicle detection."
+        case .notDetermined:
+            return "Grant access on the next screen so we can ignore walking when measuring mileage."
+        @unknown default:
+            return "Motion data access is not available on this device."
         }
     }
 

@@ -8,6 +8,9 @@ struct SettingsView: View {
     @State private var selectedAppearance: AppearancePreference = .system
     @State private var mileageSavedMessage: String?
     @State private var showExpenseCategoryEditor: Bool = false
+    @State private var reminderBeforeStartMinutes: Int = 45
+    @State private var reminderBeforeEndMinutes: Int = 15
+    @State private var tipReminderHours: Int = 24
 
     var body: some View {
         NavigationStack {
@@ -40,6 +43,33 @@ struct SettingsView: View {
                             }
                         }
 
+                        SectionCard(title: "Reminders") {
+                            VStack(alignment: .leading, spacing: 14) {
+                                reminderField(
+                                    label: "Prior to Block Start",
+                                    value: $reminderBeforeStartMinutes,
+                                    placeholder: "45",
+                                    unit: "minutes",
+                                    onChange: updateReminderBeforeStart
+                                )
+                                reminderField(
+                                    label: "Prior to Block End",
+                                    value: $reminderBeforeEndMinutes,
+                                    placeholder: "15",
+                                    unit: "minutes",
+                                    onChange: updateReminderBeforeEnd
+                                )
+                                reminderField(
+                                    label: "Tip reminder",
+                                    value: $tipReminderHours,
+                                    placeholder: "24",
+                                    unit: tipReminderHours == 1 ? "hour" : "hours",
+                                    onChange: updateTipReminderHours
+                                )
+                            }
+                            .keyboardDoneToolbar()
+                        }
+
                         SectionCard(title: "Mileage deduction rate (cents)") {
                             TextField("IRS mileage rate (cents per mile)", text: $irsRateText)
                                 .keyboardType(.numberPad)
@@ -56,26 +86,6 @@ struct SettingsView: View {
                                     .foregroundStyle(.green)
                                 }
                             }
-
-                        SectionCard(title: "Erase All Content and Settings") {
-                            NavigationLink {
-                                EraseDataView()
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Completely remove every block, expense, and custom preference for a fresh start.")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding(.vertical, 12)
-                                .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.plain)
-                        }
 
                         SectionCard(title: "About FlexErrn") {
                             VStack(alignment: .leading, spacing: 12) {
@@ -104,6 +114,23 @@ struct SettingsView: View {
                                 }
                                 .buttonStyle(.plain)
                             }
+                        }
+
+                        SectionCard {
+                            NavigationLink {
+                                EraseDataView()
+                            } label: {
+                                HStack {
+                                    Text("Erase All Content and Settings")
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
 
                     }
@@ -170,6 +197,77 @@ struct SettingsView: View {
         let rate = settings.first?.irsMileageRate ?? 0.70
         irsRateText = formatCents(rate)
         selectedAppearance = settings.first?.preferredAppearance ?? .system
+        reminderBeforeStartMinutes = settings.first?.reminderBeforeStartMinutes ?? 45
+        reminderBeforeEndMinutes = settings.first?.reminderBeforeEndMinutes ?? 15
+        tipReminderHours = settings.first?.tipReminderHours ?? 24
+    }
+
+    private func reminderField(
+        label: String,
+        value: Binding<Int>,
+        placeholder: String,
+        unit: String,
+        onChange: @escaping (Int) -> Void
+    ) -> some View {
+        return HStack(alignment: .center, spacing: 12) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.primary)
+                .frame(width: reminderLabelWidth, alignment: .leading)
+            HStack(spacing: 4) {
+                TextField(placeholder, value: value, formatter: integerFormatter)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .fixedSize()
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(.white.opacity(0.15))
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                    )
+                    .frame(width: 90)
+                    .onChange(of: value.wrappedValue, perform: onChange)
+                Text(unit)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .fixedSize()
+        }
+    }
+
+    private var reminderLabelWidth: CGFloat {
+        180
+    }
+
+    private var integerFormatter: NumberFormatter {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .none
+        formatter.minimum = 0
+        return formatter
+    }
+
+    private func updateReminderBeforeStart(_ minutes: Int) {
+        guard let s = settings.first else { return }
+        s.reminderBeforeStartMinutes = minutes
+        try? context.save()
+    }
+
+    private func updateReminderBeforeEnd(_ minutes: Int) {
+        guard let s = settings.first else { return }
+        s.reminderBeforeEndMinutes = minutes
+        try? context.save()
+    }
+
+    private func updateTipReminderHours(_ hours: Int) {
+        guard let s = settings.first else { return }
+        s.tipReminderHours = hours
+        try? context.save()
     }
 
 }
@@ -238,11 +336,11 @@ private struct LicenseEntry: Identifiable {
 }
 
 private struct SectionCard<Content: View>: View {
-    let title: String
+    let title: String?
     let background: AnyShapeStyle
     let content: Content
 
-    init(title: String, background: AnyShapeStyle = AnyShapeStyle(.ultraThinMaterial), @ViewBuilder content: () -> Content) {
+    init(title: String? = nil, background: AnyShapeStyle = AnyShapeStyle(.ultraThinMaterial), @ViewBuilder content: () -> Content) {
         self.title = title
         self.background = background
         self.content = content()
@@ -250,8 +348,10 @@ private struct SectionCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
+            if let title, !title.isEmpty {
+                Text(title)
+                    .font(.headline)
+            }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)

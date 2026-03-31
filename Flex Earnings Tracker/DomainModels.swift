@@ -411,6 +411,9 @@ public final class AppSettings {
     public var includePreReminder: Bool = true
     public var hasDismissedPlanCard: Bool = false
     public var hasCompletedOnboarding: Bool
+    public var reminderBeforeStartMinutes: Int = 45
+    public var reminderBeforeEndMinutes: Int = 15
+    public var tipReminderHours: Int = 24
 
     private static let defaultExpenseCategoryDescriptors = ExpenseCategoryDescriptor.defaultList
     private static let defaultExpenseCategoryJSON: String = {
@@ -439,7 +442,10 @@ public final class AppSettings {
         includePreReminder: Bool = true,
         hasDismissedPlanCard: Bool = false,
         expenseCategories: [ExpenseCategoryDescriptor]? = nil,
-        hasCompletedOnboarding: Bool = false
+        hasCompletedOnboarding: Bool = false,
+        reminderBeforeStartMinutes: Int = 45,
+        reminderBeforeEndMinutes: Int = 15,
+        tipReminderHours: Int = 24
     ) {
         self.id = id
         self.irsMileageRate = irsMileageRate
@@ -451,6 +457,9 @@ public final class AppSettings {
         let categoriesToUse = expenseCategories ?? Self.defaultExpenseCategoryDescriptors
         self.expenseCategoriesJSON = Self.encodeExpenseCategoryDescriptors(categoriesToUse)
         self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.reminderBeforeStartMinutes = reminderBeforeStartMinutes
+        self.reminderBeforeEndMinutes = reminderBeforeEndMinutes
+        self.tipReminderHours = tipReminderHours
     }
 
     public var preferredAppearance: AppearancePreference {
