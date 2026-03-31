@@ -452,6 +452,12 @@ struct CalculatorView: View {
                             .labelsHidden()
                     }
                 }
+                Divider()
+                HStack {
+                    Text("Block Reminders")
+                        .font(.headline)
+                    Spacer()
+                }
                 reminderToggleGrid
             }
             Button {
