@@ -213,6 +213,7 @@ struct CalculatorView: View {
                         title: "Active blocks",
                         blocks: activeBlocks,
                         showStartButton: true,
+                        showMenu: false,
                         onStartBlock: startBlock,
                         onCompleteBlock: requestCompleteBlock
                     )
@@ -522,6 +523,7 @@ struct CalculatorView: View {
         blocks: [Block],
         showStartButton: Bool,
         showCompleteAction: Bool = true,
+        showMenu: Bool = true,
         onStartBlock: ((Block) -> Void)? = nil,
         onCompleteBlock: ((Block) -> Void)? = nil
     ) -> some View {
@@ -530,15 +532,16 @@ struct CalculatorView: View {
                 .font(.headline)
             ForEach(blocks, id: \.id) { block in
                 NavigationLink(destination: BlockDetailView(block: block)) {
-                    BlockCard(
-                        block: block,
-                        showStartButton: showStartButton,
-                        isWorkModeBlock: workModeBlock?.id == block.id,
-                        isResumableBlock: startedBlockID == block.id && workModeBlock?.id != block.id,
-                        showCompleteAction: showCompleteAction,
-                        onStartBlock: onStartBlock,
-                        onCompleteBlock: onCompleteBlock
-                    )
+                BlockCard(
+                    block: block,
+                    showStartButton: showStartButton,
+                    isWorkModeBlock: workModeBlock?.id == block.id,
+                    isResumableBlock: startedBlockID == block.id && workModeBlock?.id != block.id,
+                    showCompleteAction: showCompleteAction,
+                    showMenu: showMenu && (workModeBlock?.id != block.id),
+                    onStartBlock: onStartBlock,
+                    onCompleteBlock: onCompleteBlock
+                )
                 }
                 .buttonStyle(.plain)
             }
@@ -553,6 +556,7 @@ struct CalculatorView: View {
         isWorkModeBlock: Bool = false,
         isResumableBlock: Bool = false,
         showCompleteAction: Bool = true,
+        showMenu: Bool = true,
         onStartBlock: ((Block) -> Void)? = nil,
         onCompleteBlock: ((Block) -> Void)? = nil
     ) -> some View {
@@ -564,21 +568,23 @@ struct CalculatorView: View {
                 Text(block.status.displayName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Menu {
-                    if block.isEligibleForMakeActive {
-                        Button("Make Active") {
-                            workModeCoordinator.forceActive(block)
-                            tabSelectionState.selectedTab = 0
+                if showMenu {
+                    Menu {
+                        if block.isEligibleForMakeActive {
+                            Button("Make Active") {
+                                workModeCoordinator.forceActive(block)
+                                tabSelectionState.selectedTab = 0
+                            }
                         }
+                        if showCompleteAction {
+                            Button("Complete") { complete(block) }
+                                .disabled(block.status == .completed)
+                        }
+                        Button("Cancel") { cancel(block) }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
                     }
-                    if showCompleteAction {
-                        Button("Complete") { complete(block) }
-                            .disabled(block.status == .completed)
-                    }
-                    Button("Cancel") { cancel(block) }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.title3)
                 }
             }
             Text("\(blockTimeFormatter.string(from: startDate(for: block))) – \(blockTimeFormatter.string(from: endDate(for: block)))")
