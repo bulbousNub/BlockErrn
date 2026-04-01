@@ -36,7 +36,11 @@ final class NotificationManager {
             )
         }
 
+        let terminalStatus = block.status
+        let shouldSkipEndReminders = terminalStatus == .completed || terminalStatus == .cancelled
+
         if config.preEndEnabled,
+           !shouldSkipEndReminders,
            let events = Calendar.current.date(byAdding: .minute, value: -config.preEndMinutes, to: endDate),
            events > now {
             schedule(
@@ -47,7 +51,8 @@ final class NotificationManager {
             )
         }
 
-        if config.endEnabled {
+        if config.endEnabled,
+           !shouldSkipEndReminders {
             schedule(
                 id: identifiers.end,
                 title: "Block end reached",

@@ -356,6 +356,15 @@ public extension Block {
         return effectiveStart.addingTimeInterval(TimeInterval(effectiveMinutes * 60))
     }
 
+    var isEligibleForMakeActive: Bool {
+        guard status == .accepted else { return false }
+        let now = Date()
+        let start = scheduledStartDate
+        if start > now { return true }
+        let window = now.addingTimeInterval(-24 * 60 * 60)
+        return scheduledEndDate >= window
+    }
+
     var shouldExcludeMileageDeduction: Bool {
         DeductionPreferenceStore.shared.shouldExclude(type: .mileage, blockID: id)
     }

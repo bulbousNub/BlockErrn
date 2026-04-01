@@ -120,9 +120,11 @@ struct LogView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Menu {
-                    Button("Make Active") {
-                        workModeCoordinator.forceActive(block)
-                        tabSelectionState.selectedTab = 0
+                    if block.isEligibleForMakeActive {
+                        Button("Make Active") {
+                            workModeCoordinator.forceActive(block)
+                            tabSelectionState.selectedTab = 0
+                        }
                     }
                     Button("Mark Cancelled") { cancel(block) }
                 } label: {

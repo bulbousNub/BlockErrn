@@ -565,9 +565,11 @@ struct CalculatorView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Menu {
-                    Button("Make Active") {
-                        workModeCoordinator.forceActive(block)
-                        tabSelectionState.selectedTab = 0
+                    if block.isEligibleForMakeActive {
+                        Button("Make Active") {
+                            workModeCoordinator.forceActive(block)
+                            tabSelectionState.selectedTab = 0
+                        }
                     }
                     if showCompleteAction {
                         Button("Complete") { complete(block) }
