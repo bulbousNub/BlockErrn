@@ -54,6 +54,76 @@ public enum AuditAction: String, Codable, CaseIterable {
     case expenseAdded
     case expenseRemoved
     case milesUpdated
+
+    public var displayName: String {
+        switch self {
+        case .created: return "Created"
+        case .updated: return "Updated"
+        case .deleted: return "Deleted"
+        case .statusChanged: return "Status Changed"
+        case .tipsUpdated: return "Tips Updated"
+        case .expenseAdded: return "Expense Added"
+        case .expenseRemoved: return "Expense Removed"
+        case .milesUpdated: return "Miles Updated"
+        }
+    }
+}
+
+let auditTimestampFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter
+}()
+
+func auditDateString(_ date: Date?) -> String? {
+    guard let date else { return nil }
+    return auditTimestampFormatter.string(from: date)
+}
+
+public func currencyString(_ value: Decimal) -> String {
+    let formatter = NumberFormatter()
+    formatter.numberStyle = .currency
+    formatter.currencyCode = "USD"
+    formatter.maximumFractionDigits = 2
+    formatter.minimumFractionDigits = 2
+    return formatter.string(from: value as NSDecimalNumber) ?? "$0.00"
+}
+
+public func logBlockCreationFields(
+    for block: Block,
+    note: String,
+    currencyFormatter: (Decimal) -> String
+) {
+    let totalMinutes = max(1, block.durationMinutes)
+    let hours = Decimal(totalMinutes) / 60
+    let grossPerHour: Decimal = hours > 0 ? block.grossPayout / hours : block.grossPayout
+
+    let entries: [(field: String, value: String?)] = [
+        ("date", auditDateString(block.date)),
+        ("durationMinutes", "\(block.durationMinutes)"),
+        ("status", block.status.displayName),
+        ("notes", block.notes),
+        ("grossBase", currencyFormatter(block.grossBase)),
+        ("hasTips", block.hasTips ? "true" : "false"),
+        ("tipsAmount", block.tipsAmount.map(currencyFormatter)),
+        ("grossPayout", currencyFormatter(block.grossPayout)),
+        ("grossPerHour", currencyFormatter(grossPerHour)),
+        ("startTime", auditDateString(block.startTime)),
+        ("endTime", auditDateString(block.endTime)),
+        ("miles", auditDecimalString(block.miles)),
+        ("irsRateSnapshot", currencyFormatter(block.irsRateSnapshot)),
+        ("mileageDeduction", currencyFormatter(block.mileageDeduction))
+    ]
+
+        for entry in entries {
+            guard let newValue = entry.value else { continue }
+            block.recordAuditEntry(action: .updated, field: entry.field, oldValue: nil, newValue: newValue, note: note)
+        }
+}
+
+public func auditDecimalString(_ value: Decimal) -> String {
+    (value as NSDecimalNumber).stringValue
 }
 
 public struct RoutePoint: Codable, Hashable {
@@ -348,10 +418,10 @@ public extension Block {
     }
     var scheduledStartDate: Date { startTime ?? date }
     var scheduledEndDate: Date {
-        if let explicitEnd = endTime {
-            return explicitEnd
-        }
         let effectiveStart = scheduledStartDate
+        if let explicitEnd = endTime {
+            return Self.normalizedEndDate(explicitEnd, relativeTo: effectiveStart)
+        }
         let effectiveMinutes = max(1, durationMinutes)
         return effectiveStart.addingTimeInterval(TimeInterval(effectiveMinutes * 60))
     }
@@ -383,6 +453,29 @@ public extension Block {
 
     var hasIndividuallyExcludedExpenses: Bool {
         expenses.contains { DeductionPreferenceStore.shared.isExpenseExcluded($0.id) }
+    }
+
+    func recordAuditEntry(
+        action: AuditAction,
+        field: String? = nil,
+        oldValue: String? = nil,
+        newValue: String? = nil,
+        note: String? = nil
+    ) {
+        let entry = AuditEntry(action: action, field: field, oldValue: oldValue, newValue: newValue, note: note)
+        auditEntries.append(entry)
+    }
+}
+
+fileprivate extension Block {
+    static func normalizedEndDate(_ explicitEnd: Date, relativeTo start: Date) -> Date {
+        var candidate = explicitEnd
+        let calendar = Calendar.current
+        while candidate <= start {
+            candidate = calendar.date(byAdding: .day, value: 1, to: candidate)
+                ?? candidate.addingTimeInterval(24 * 60 * 60)
+        }
+        return candidate
     }
 }
 

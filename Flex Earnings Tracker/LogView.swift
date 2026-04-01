@@ -120,12 +120,19 @@ struct LogView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Menu {
-                    if block.isEligibleForMakeActive {
-                        Button("Make Active") {
-                            workModeCoordinator.forceActive(block)
-                            tabSelectionState.selectedTab = 0
+                        if block.isEligibleForMakeActive {
+                            Button("Make Active") {
+                                workModeCoordinator.forceActive(block)
+                                block.recordAuditEntry(
+                                    action: .updated,
+                                    field: "activeState",
+                                    newValue: "true",
+                                    note: "Promoted from log view"
+                                )
+                                try? context.save()
+                                tabSelectionState.selectedTab = 0
+                            }
                         }
-                    }
                     Button("Mark Cancelled") { cancel(block) }
                 } label: {
                     Image(systemName: "ellipsis.circle")

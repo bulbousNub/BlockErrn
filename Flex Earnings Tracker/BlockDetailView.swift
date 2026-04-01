@@ -14,6 +14,7 @@ struct BlockDetailView: View {
     @State private var showAddExpense = false
     @State private var showStartConfirmation = false
     @State private var showCompletionPrompt = false
+    @State private var showAuditLog = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var showLegacyTrackingControls: Bool { false }
@@ -37,6 +38,27 @@ struct BlockDetailView: View {
         }
         .navigationTitle("Block Details")
         .keyboardDoneToolbar()
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button("Audit Log") {
+                        showAuditLog = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
+                }
+            }
+        }
+        .background(
+            NavigationLink(
+                destination: AuditLogView(entries: auditEntriesSorted),
+                isActive: $showAuditLog
+            ) {
+                EmptyView()
+            }
+            .hidden()
+        )
         .sheet(isPresented: $showAddExpense) {
             AddExpenseSheet(block: $block)
         }
@@ -63,7 +85,15 @@ struct BlockDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Overview")
                 .font(.headline)
-            DatePicker("Date", selection: Binding(get: { block.date }, set: { block.date = $0; touch() }), displayedComponents: .date)
+            DatePicker(
+                "Date",
+                selection: auditedBinding(
+                    \.date,
+                    field: "date",
+                    formatter: { Self.blockTimestampFormatter.string(from: $0) }
+                ),
+                displayedComponents: .date
+            )
                 .datePickerStyle(.compact)
             HStack {
                 Text("Duration")
@@ -82,7 +112,26 @@ struct BlockDetailView: View {
                 .pickerStyle(.menu)
                 .tint(buttonTextColor)
             }
-            LiquidNotesField(placeholder: "Notes", text: Binding(get: { block.notes ?? "" }, set: { block.notes = $0; touch() }))
+            LiquidNotesField(placeholder: "Notes", text: Binding(
+                get: { block.notes ?? "" },
+                set: { newValue in
+                    let oldValue = block.notes ?? ""
+                    let normalizedNew = newValue.isEmpty ? nil : newValue
+                    if (block.notes ?? "") == newValue {
+                        block.notes = normalizedNew
+                        return
+                    }
+                    block.notes = normalizedNew
+                    log(
+                        .updated,
+                        field: "notes",
+                        oldValue: oldValue.isEmpty ? nil : oldValue,
+                        newValue: normalizedNew,
+                        note: "Modified by user"
+                    )
+                    touch()
+                }
+            ))
             timestampRow
         }
         .flexErrnCardStyle()
@@ -109,10 +158,40 @@ struct BlockDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Payout")
                 .font(.headline)
-            DecimalField("Base Pay", prefix: "$", value: Binding(get: { block.grossBase }, set: { block.grossBase = $0; touch() }))
-            Toggle("Has tips", isOn: Binding(get: { block.hasTips }, set: { block.hasTips = $0; touch() }))
+            DecimalField(
+                "Base Pay",
+                prefix: "$",
+                value: auditedBinding(\.grossBase, field: "grossBase", formatter: formatCurrency)
+            )
+            Toggle("Has tips", isOn: Binding(get: { block.hasTips }, set: { newValue in
+                let oldValue = block.hasTips
+                guard oldValue != newValue else {
+                    block.hasTips = newValue
+                    return
+                }
+                block.hasTips = newValue
+                log(
+                    .updated,
+                    field: "hasTips",
+                    oldValue: oldValue ? "true" : "false",
+                    newValue: newValue ? "true" : "false",
+                    note: "Modified by user"
+                )
+                touch()
+            }))
             if block.hasTips {
-                    OptionalDecimalField(title: "Tips", prefix: "$", value: Binding(get: { block.tipsAmount }, set: { block.tipsAmount = $0; touch(); log(AuditAction.tipsUpdated) }))
+                OptionalDecimalField(
+                    title: "Tips",
+                    prefix: "$",
+                value: auditedBinding(
+                    \.tipsAmount,
+                    field: "tipsAmount",
+                    formatter: { optional in
+                        guard let amount = optional else { return "—" }
+                        return formatCurrency(amount)
+                    }
+                )
+                )
                 if block.tipsAmount == nil {
                     Text("Enter the tip amount once it posts (typically 24 hours after the block).")
                         .font(.caption)
@@ -163,6 +242,11 @@ struct BlockDetailView: View {
         return formatter
     }()
 
+    private func formattedScheduleTime(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        return Self.scheduleTimeFormatter.string(from: date)
+    }
+
     @ViewBuilder
     private var routeCard: some View {
             if let segments = block.routeSegments, !segments.isEmpty {
@@ -180,7 +264,25 @@ struct BlockDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Mileage")
                 .font(.headline)
-            MilesField("Miles", value: Binding(get: { block.miles }, set: { block.miles = $0; touch(); log(AuditAction.milesUpdated) }), displayValue: block.roundedMiles)
+            MilesField("Miles", value: Binding(
+                get: { block.miles },
+                set: { newValue in
+                    let oldValue = block.miles
+                    guard oldValue != newValue else {
+                        block.miles = newValue
+                        return
+                    }
+                    block.miles = newValue
+                    log(
+                        .milesUpdated,
+                        field: "miles",
+                        oldValue: auditDecimalString(oldValue),
+                        newValue: auditDecimalString(newValue),
+                        note: "Modified by user"
+                    )
+                    touch()
+                }
+            ), displayValue: block.roundedMiles)
             HStack {
                 Text("Rate snapshot")
                 Spacer()
@@ -197,7 +299,13 @@ struct BlockDetailView: View {
                 set: { newValue in
                     let oldValue = block.shouldExcludeMileageDeduction
                     DeductionPreferenceStore.shared.setExclude(newValue, type: .mileage, blockID: block.id)
-                    log(AuditAction.milesUpdated, field: "excludeMileageDeduction", oldValue: oldValue ? "true" : "false", newValue: newValue ? "true" : "false")
+                    log(
+                        AuditAction.milesUpdated,
+                        field: "excludeMileageDeduction",
+                        oldValue: oldValue ? "true" : "false",
+                        newValue: newValue ? "true" : "false",
+                        note: "Modified by user"
+                    )
                     touch()
                 }
             )) {
@@ -457,10 +565,15 @@ struct BlockDetailView: View {
         touch()
     }
 
-    private func log(_ action: AuditAction, field: String? = nil, oldValue: String? = nil, newValue: String? = nil) {
+    private func log(_ action: AuditAction, field: String? = nil, oldValue: String? = nil, newValue: String? = nil, note: String? = nil) {
         let entry = AuditEntry(action: action, field: field, oldValue: oldValue, newValue: newValue)
+        entry.note = note
         block.auditEntries.append(entry)
         try? context.save()
+    }
+
+    private var auditEntriesSorted: [AuditEntry] {
+        block.auditEntries.sorted { $0.timestamp > $1.timestamp }
     }
 
     private func formatCurrency(_ value: Decimal) -> String {
@@ -486,19 +599,97 @@ struct BlockDetailView: View {
         return block.totalProfit / hours
     }
 
+    private func auditedBinding<T: Equatable>(
+        _ keyPath: ReferenceWritableKeyPath<Block, T>,
+        field: String,
+        note: String = "Modified by user",
+        formatter: ((T) -> String)? = nil
+    ) -> Binding<T> {
+        Binding(
+            get: { block[keyPath: keyPath] },
+            set: { newValue in
+                let oldValue = block[keyPath: keyPath]
+                guard oldValue != newValue else {
+                    block[keyPath: keyPath] = newValue
+                    return
+                }
+                block[keyPath: keyPath] = newValue
+                log(
+                    .updated,
+                    field: field,
+                    oldValue: formattedAuditValue(oldValue, using: formatter),
+                    newValue: formattedAuditValue(newValue, using: formatter),
+                    note: note
+                )
+                touch()
+            }
+        )
+    }
+
+    private func formattedAuditValue<T>(_ value: T, using formatter: ((T) -> String)?) -> String {
+        if let format = formatter {
+            return format(value)
+        }
+        let mirror = Mirror(reflecting: value)
+        if mirror.displayStyle == .optional {
+            if let first = mirror.children.first {
+                return "\(first.value)"
+            }
+            return "nil"
+        }
+        return "\(value)"
+    }
+
     private func startTimeChanged(to newStart: Date) {
+        let oldStart = block.startTime
         block.startTime = newStart
+        log(
+            .updated,
+            field: "startTime",
+            oldValue: formattedScheduleTime(oldStart),
+            newValue: formattedScheduleTime(newStart),
+            note: "Modified by user"
+        )
         let durationMinutes = max(1, block.durationMinutes)
-        block.endTime = newStart.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        let newEnd = newStart.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        let oldEnd = block.endTime
+        block.endTime = newEnd
+        if oldEnd != newEnd {
+            log(
+                .updated,
+                field: "endTime",
+                oldValue: formattedScheduleTime(oldEnd),
+                newValue: formattedScheduleTime(newEnd),
+                note: "Modified by user"
+            )
+        }
         block.durationMinutes = durationMinutes
         touch()
     }
 
     private func endTimeChanged(to newEnd: Date) {
+        let oldEnd = block.endTime
         block.endTime = newEnd
+        log(
+            .updated,
+            field: "endTime",
+            oldValue: formattedScheduleTime(oldEnd),
+            newValue: formattedScheduleTime(newEnd),
+            note: "Modified by user"
+        )
         let effectiveStart = block.startTime ?? block.date
         let intervalMinutes = Int(max(1, newEnd.timeIntervalSince(effectiveStart) / 60))
+        let oldDuration = block.durationMinutes
         block.durationMinutes = intervalMinutes
+        if oldDuration != intervalMinutes {
+            log(
+                .updated,
+                field: "durationMinutes",
+                oldValue: "\(oldDuration)",
+                newValue: "\(intervalMinutes)",
+                note: "Modified by user"
+            )
+        }
         touch()
     }
 }
@@ -519,18 +710,19 @@ struct AddExpenseSheet: View {
         ZStack {
             FlexErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
                     header
                     compactInputs
                     noteCard
                     receiptCard
                     actionRow
                 }
-                .padding(.vertical, 16)
+                .padding(.top, 24)
+                .padding(.bottom, 14)
                 .padding(.horizontal, 16)
             }
         }
-        .presentationDetents([.fraction(0.45)])
+        .presentationDetents([.height(610)])
         .presentationDragIndicator(.visible)
         .onAppear { ensureValidSelection() }
         .onChange(of: categoryIDs) { _ in ensureValidSelection() }
@@ -705,6 +897,69 @@ struct AddExpenseSheet: View {
 
 }
 
+private struct AuditLogView: View {
+    let entries: [AuditEntry]
+
+    var body: some View {
+        ZStack {
+            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    if entries.isEmpty {
+                        Text("No audit entries recorded for this block yet.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding()
+                    } else {
+                        ForEach(entries, id: \.id) { entry in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(entry.action.displayName)
+                                        .font(.headline)
+                                    Spacer()
+                                    Text(Self.timestampFormatter.string(from: entry.timestamp))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(entryDescription(entry))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                                    if let note = entry.note, !note.isEmpty {
+                                        Text(note)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .italic()
+                                    }
+                            }
+                            .padding()
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        }
+                    }
+                }
+                .padding()
+            }
+        }
+        .navigationTitle("Audit Log")
+    }
+
+    private func entryDescription(_ entry: AuditEntry) -> String {
+        if let field = entry.field {
+            let oldValue = entry.oldValue ?? "—"
+            let newValue = entry.newValue ?? "—"
+            return "\(field.capitalized): \(oldValue) → \(newValue)"
+        }
+        return "No additional details."
+    }
+
+    private static let timestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+}
+
 struct DecimalField: View {
     let title: String
     let prefix: String?
@@ -717,6 +972,8 @@ struct DecimalField: View {
     }
 
     @State private var text: String = ""
+    @State private var pendingValue: Decimal?
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 6) {
@@ -724,39 +981,49 @@ struct DecimalField: View {
                 Text(prefix)
                     .foregroundStyle(.secondary)
             }
-            TextField(title, text: Binding(
-                get: {
-                    if text.isEmpty {
-                        if value == 0 {
-                            return ""
-                        } else {
-                            return (value as NSDecimalNumber).stringValue
-                        }
-                    } else {
-                        return text
-                    }
-                },
-                set: { newText in
-                    text = newText
-                    if let d = Decimal(string: newText) { value = d }
+            TextField(title, text: $text)
+                .keyboardType(.decimalPad)
+                .focused($isFocused)
+                .onAppear {
+                    text = formattedValue(value)
                 }
-            ))
-            .keyboardType(.decimalPad)
-            .onAppear {
-                if value != 0 {
-                    text = (value as NSDecimalNumber).stringValue
-                } else {
-                    text = ""
-                }
-            }
-            .onChange(of: value) { newValue in
-                if text.isEmpty {
-                    if newValue != 0 {
-                        text = (newValue as NSDecimalNumber).stringValue
+                .onChange(of: text) { newText in
+                    if let decimal = Decimal(string: newText) {
+                        pendingValue = decimal
+                    } else if newText.isEmpty {
+                        pendingValue = nil
                     }
                 }
-            }
+                .onChange(of: isFocused) { focused in
+                    if !focused {
+                        commitPending()
+                    }
+                }
+                .onChange(of: value) { newValue in
+                    if !isFocused {
+                        text = formattedValue(newValue)
+                    }
+                }
         }
+    }
+
+    private func commitPending() {
+        guard let pending = pendingValue else {
+            pendingValue = nil
+            return
+        }
+        if pending != value {
+            value = pending
+        }
+        pendingValue = nil
+        text = formattedValue(value)
+    }
+
+    private func formattedValue(_ decimal: Decimal) -> String {
+        if decimal == 0 {
+            return ""
+        }
+        return (decimal as NSDecimalNumber).stringValue
     }
 }
 
@@ -764,7 +1031,10 @@ struct MilesField: View {
     let title: String
     @Binding var value: Decimal
     let displayValue: Decimal
+
     @State private var text: String = ""
+    @State private var pendingValue: Decimal?
+    @FocusState private var isFocused: Bool
 
     init(_ title: String, value: Binding<Decimal>, displayValue: Decimal) {
         self.title = title
@@ -773,31 +1043,46 @@ struct MilesField: View {
     }
 
     var body: some View {
-        TextField(title, text: Binding(
-            get: {
-                if text.isEmpty {
-                    if displayValue > 0 {
-                        return (displayValue as NSDecimalNumber).stringValue
-                    } else {
-                        return ""
-                    }
-                } else {
-                    return text
-                }
-            },
-            set: { newText in
-                text = newText
-                if let d = Decimal(string: newText) {
-                    value = d
+        TextField(title, text: $text)
+            .keyboardType(.decimalPad)
+            .focused($isFocused)
+            .onAppear {
+                text = formattedValue(displayValue)
+            }
+            .onChange(of: text) { newText in
+                if let decimal = Decimal(string: newText) {
+                    pendingValue = decimal
+                } else if newText.isEmpty {
+                    pendingValue = nil
                 }
             }
-        ))
-        .keyboardType(.decimalPad)
-        .onChange(of: displayValue) { newValue in
-            if text.isEmpty && newValue > 0 {
-                text = (newValue as NSDecimalNumber).stringValue
+            .onChange(of: isFocused) { focused in
+                if !focused {
+                    commitPending()
+                }
             }
+            .onChange(of: displayValue) { newValue in
+                if !isFocused && text.isEmpty {
+                    text = formattedValue(newValue)
+                }
+            }
+    }
+
+    private func commitPending() {
+        guard let pending = pendingValue else {
+            pendingValue = nil
+            return
         }
+        if pending != value {
+            value = pending
+        }
+        pendingValue = nil
+        text = formattedValue(value)
+    }
+
+    private func formattedValue(_ decimal: Decimal) -> String {
+        guard decimal > 0 else { return "" }
+        return (decimal as NSDecimalNumber).stringValue
     }
 }
 
@@ -1103,7 +1388,15 @@ private struct ExpenseDetailView: View {
         Binding(
             get: { expense.categoryRaw },
             set: { newValue in
+                let oldValue = expense.categoryRaw
+                guard oldValue != newValue else { return }
                 expense.categoryRaw = newValue
+                logExpenseChange(
+                    field: "expenseCategory",
+                    oldValue: oldValue,
+                    newValue: newValue,
+                    note: "Modified expense category"
+                )
                 save()
             }
         )
@@ -1113,7 +1406,15 @@ private struct ExpenseDetailView: View {
         Binding(
             get: { expense.amount },
             set: { newValue in
+                let oldValue = expense.amount
+                guard oldValue != newValue else { return }
                 expense.amount = newValue
+                logExpenseChange(
+                    field: "expenseAmount",
+                    oldValue: auditDecimalString(oldValue),
+                    newValue: auditDecimalString(newValue),
+                    note: "Modified expense amount"
+                )
                 save()
             }
         )
@@ -1123,7 +1424,19 @@ private struct ExpenseDetailView: View {
         Binding(
             get: { expense.note ?? "" },
             set: { newValue in
-                expense.note = newValue.isEmpty ? nil : newValue
+                let oldValue = expense.note ?? ""
+                let normalizedNew = newValue.isEmpty ? nil : newValue
+                guard oldValue != newValue else {
+                    expense.note = normalizedNew
+                    return
+                }
+                expense.note = normalizedNew
+                logExpenseChange(
+                    field: "expenseNote",
+                    oldValue: oldValue.isEmpty ? nil : oldValue,
+                    newValue: normalizedNew,
+                    note: "Modified expense note"
+                )
                 save()
             }
         )
@@ -1133,7 +1446,15 @@ private struct ExpenseDetailView: View {
         Binding(
             get: { DeductionPreferenceStore.shared.isExpenseExcluded(expense.id) },
             set: { newValue in
+                let oldValue = DeductionPreferenceStore.shared.isExpenseExcluded(expense.id)
+                guard oldValue != newValue else { return }
                 DeductionPreferenceStore.shared.setExpenseExcluded(newValue, expenseID: expense.id)
+                logExpenseChange(
+                    field: "expenseExcluded",
+                    oldValue: oldValue ? "true" : "false",
+                    newValue: newValue ? "true" : "false",
+                    note: newValue ? "Excluded expense from profit" : "Included expense in profit"
+                )
                 save()
             }
         )
@@ -1142,6 +1463,11 @@ private struct ExpenseDetailView: View {
     private func save() {
         expense.updatedAt = Date()
         try? context.save()
+    }
+
+    private func logExpenseChange(field: String, oldValue: String?, newValue: String?, note: String) {
+        guard let block = expense.block else { return }
+        block.recordAuditEntry(action: .updated, field: field, oldValue: oldValue, newValue: newValue, note: note)
     }
 
     private func handleCapturedReceipt(_ image: UIImage) {

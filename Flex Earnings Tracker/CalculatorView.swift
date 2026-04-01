@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import MapKit
 import CoreLocation
+import Combine
 
 struct CalculatorView: View {
 
@@ -23,6 +24,7 @@ struct CalculatorView: View {
     @State private var showAcceptedAlert: Bool = false
     @State private var acceptedBlock: Block? = nil
     @State private var currentTime: Date = Date()
+    @State private var timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     @State private var startReminderEnabled: Bool = true
     @State private var preEndReminderEnabled: Bool = true
     @State private var endReminderEnabled: Bool = true
@@ -100,8 +102,16 @@ struct CalculatorView: View {
     private func handleWorkModeStop() {
         guard let block = workModeBlock else { return }
             if let (sessionMiles, routePoints) = mileageTracker.stopTracking(for: block.id) {
+                let oldMiles = block.miles
                 block.miles += Decimal(sessionMiles)
                 block.appendRouteSegment(routePoints)
+                block.recordAuditEntry(
+                    action: .milesUpdated,
+                    field: "miles",
+                    oldValue: auditDecimalString(oldMiles),
+                    newValue: auditDecimalString(block.miles),
+                    note: "Captured during work mode stop"
+                )
                 block.updatedAt = Date()
                 try? context.save()
             }
@@ -126,8 +136,15 @@ struct CalculatorView: View {
         if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
             handleWorkModeStop()
         }
-        block.userCompletionTime = Date()
-        complete(block)
+        let completionTime = Date()
+        block.userCompletionTime = completionTime
+        block.recordAuditEntry(
+            action: .updated,
+            field: "userCompletionTime",
+            newValue: auditDateString(completionTime),
+            note: "Completed via work mode"
+        )
+        complete(block, note: "Completed from work mode")
         withAnimation {
             workModeBlock = nil
             workModeCollapsed = false
@@ -149,7 +166,14 @@ struct CalculatorView: View {
             showSwitchBlockAlert = true
         } else {
             workModeCoordinator.forceActive(block)
-            block.userStartTime = Date()
+            let startTime = Date()
+            block.userStartTime = startTime
+            block.recordAuditEntry(
+                action: .updated,
+                field: "userStartTime",
+                newValue: auditDateString(startTime),
+                note: "Started via work mode"
+            )
             try? context.saveIfNeeded()
             enterWorkMode(block)
         }
@@ -241,6 +265,7 @@ struct CalculatorView: View {
                 startTimer()
                 preEndReminderEnabled = settings.first?.includePreReminder ?? true
             }
+            .onReceive(timer) { currentTime = $0 }
             .onChange(of: selectedHours) { _ in
                 syncEndToDuration()
             }
@@ -301,6 +326,13 @@ struct CalculatorView: View {
                     handleWorkModeStop()
                 }
                 workModeCoordinator.forceActive(block)
+                block.recordAuditEntry(
+                    action: .updated,
+                    field: "activeState",
+                    newValue: "true",
+                    note: "Promoted via work mode coordinator"
+                )
+                context.saveIfNeeded()
                 enterWorkMode(block)
                 workModeCoordinator.blockToStart = nil
             }
@@ -573,6 +605,13 @@ struct CalculatorView: View {
                         if block.isEligibleForMakeActive {
                             Button("Make Active") {
                                 workModeCoordinator.forceActive(block)
+                                block.recordAuditEntry(
+                                    action: .updated,
+                                    field: "activeState",
+                                    newValue: "true",
+                                    note: "Promoted from calculator view"
+                                )
+                                context.saveIfNeeded()
                                 tabSelectionState.selectedTab = 0
                             }
                         }
@@ -953,6 +992,7 @@ struct CalculatorView: View {
         let block = Block(date: blockDate, durationMinutes: totalMinutes, grossBase: gross, irsRateSnapshot: rate, startTime: startDate, endTime: endDate)
         block.hasTips = hasTipsOnHome
         block.auditEntries.append(AuditEntry(action: AuditAction.created, note: "Block accepted from calculator"))
+        logBlockCreationFields(for: block, note: "Captured during calculator entry", currencyFormatter: currencyString)
         context.insert(block)
         let reminderConfig = NotificationManager.ReminderConfiguration(
             startMinutes: reminderBeforeStartMinutes,
@@ -986,10 +1026,10 @@ struct CalculatorView: View {
         context.saveIfNeeded()
     }
 
-    private func complete(_ block: Block) {
+    private func complete(_ block: Block, note: String = "Marked completed from calculator") {
         guard block.status != .completed else { return }
         block.status = .completed
-        logStatusChange(for: block, note: "Marked completed from calculator")
+        logStatusChange(for: block, note: note)
         block.updatedAt = Date()
         context.saveIfNeeded()
     }
@@ -1014,12 +1054,14 @@ struct CalculatorView: View {
     }
 
     private var upcomingBlocks: [Block] {
+        _ = currentTime
         let now = Date()
         let calendar = Calendar.current
         let windowEnd = calendar.date(byAdding: .day, value: 2, to: now) ?? now
         let activeIDs = Set(activeBlocks.map { $0.id })
         return blocks
             .filter { block in
+                guard block.status == .accepted else { return false }
                 let start = startDate(for: block)
                 guard start > now, start <= windowEnd else { return false }
                 return !activeIDs.contains(block.id)
@@ -1028,6 +1070,7 @@ struct CalculatorView: View {
     }
 
     private var activeBlocks: [Block] {
+        _ = currentTime
         let now = Date()
         let window = now.addingTimeInterval(45 * 60)
         return blocks
@@ -1066,16 +1109,11 @@ struct CalculatorView: View {
     }
 
     private func startDate(for block: Block) -> Date {
-        block.startTime ?? block.date
+        block.scheduledStartDate
     }
 
     private func endDate(for block: Block) -> Date {
-        if let end = block.endTime {
-            return end
-        }
-        let start = startDate(for: block)
-        let duration = max(1, block.durationMinutes)
-        return start.addingTimeInterval(TimeInterval(duration * 60))
+        block.scheduledEndDate
     }
 
     @Query(sort: [SortDescriptor(\Block.date)]) private var blocks: [Block]

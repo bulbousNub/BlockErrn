@@ -114,6 +114,7 @@ struct NewBlockSheet: View {
             }
         }
         block.auditEntries.append(AuditEntry(action: AuditAction.created, note: "Block added manually"))
+        logBlockCreationFields(for: block, note: "Captured via manual entry", currencyFormatter: currencyString)
         context.insert(block)
         NotificationManager.shared.scheduleBlockReminders(for: block, config: defaultReminderConfiguration)
         try? context.save()

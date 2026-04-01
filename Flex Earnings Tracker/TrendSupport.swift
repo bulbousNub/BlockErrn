@@ -262,13 +262,20 @@ struct TrendBlockRow: View {
                 Text(block.status.displayName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Menu {
-                    Button("Make Active") {
-                        workModeCoordinator.forceActive(block)
-                        tabSelectionState.selectedTab = 0
-                    }
-                    Button("Mark Cancelled") { cancel(block) }
-                } label: {
+                    Menu {
+                        Button("Make Active") {
+                            workModeCoordinator.forceActive(block)
+                            block.recordAuditEntry(
+                                action: .updated,
+                                field: "activeState",
+                                newValue: "true",
+                                note: "Promoted from trends"
+                            )
+                            try? context.save()
+                            tabSelectionState.selectedTab = 0
+                        }
+                        Button("Mark Cancelled") { cancel(block) }
+                    } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.title3)
                 }
