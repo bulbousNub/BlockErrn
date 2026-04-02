@@ -153,7 +153,7 @@ struct TrendDetailView: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     summaryCard

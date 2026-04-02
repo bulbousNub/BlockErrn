@@ -38,7 +38,7 @@ struct NewBlockSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         overviewCard
@@ -362,7 +362,7 @@ private struct ManualExpenseSheet: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     header

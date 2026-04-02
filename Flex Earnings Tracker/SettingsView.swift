@@ -15,7 +15,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         SectionCard(title: "Appearance") {
@@ -87,7 +87,7 @@ struct SettingsView: View {
                                 }
                             }
 
-                        SectionCard(title: "About FlexErrn") {
+                        SectionCard(title: "About BlockErrn") {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("A pocket-friendly ride-by-ride calculator with configurable themes, expense categories, and protected backups.")
                                     .font(.subheadline)
@@ -304,7 +304,7 @@ private struct LicensesView: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     ForEach(licenseEntries) { entry in
@@ -357,7 +357,7 @@ private struct SectionCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(background, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: FlexErrnTheme.cardShadowColor, radius: 20, x: 0, y: 10)
+        .shadow(color: BlockErrnTheme.cardShadowColor, radius: 20, x: 0, y: 10)
     }
 }
 
@@ -374,7 +374,7 @@ private struct ExpenseCategoryEditor: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             VStack(spacing: 20) {
                 header
                 addRow

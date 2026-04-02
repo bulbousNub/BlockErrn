@@ -21,7 +21,7 @@ struct BlockDetailView: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     overviewCard
@@ -708,7 +708,7 @@ struct AddExpenseSheet: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     header
@@ -902,7 +902,7 @@ private struct AuditLogView: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
                     if entries.isEmpty {
@@ -1170,7 +1170,7 @@ private struct ExpenseDetailView: View {
     @State private var showReceiptFullscreen = false
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
             detailCard

@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct FlexErrnApp: App {
+struct BlockErrnApp: App {
     var body: some Scene {
         WindowGroup {
             Bootstrapper()

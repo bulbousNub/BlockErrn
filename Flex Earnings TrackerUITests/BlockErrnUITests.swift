@@ -1,5 +1,5 @@
 //
-//  FlexErrnUITests.swift
+//  BlockErrnUITests.swift
 //  Flex Earnings TrackerUITests
 //
 //  Created by TeJay Guilliams on 3/24/26.
@@ -7,7 +7,7 @@
 
 import XCTest
 
-final class FlexErrnUITests: XCTestCase {
+final class BlockErrnUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

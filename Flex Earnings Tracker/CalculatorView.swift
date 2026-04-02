@@ -229,7 +229,7 @@ struct CalculatorView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 if !activeBlocks.isEmpty {
@@ -260,7 +260,7 @@ struct CalculatorView: View {
                     startTimer()
                 }
             }
-            .navigationTitle("FlexErrn")
+            .navigationTitle("BlockErrn")
             .onAppear {
                 startTimer()
                 preEndReminderEnabled = settings.first?.includePreReminder ?? true

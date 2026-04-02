@@ -3,10 +3,10 @@ import Foundation
 final class DeductionPreferenceStore {
     static let shared = DeductionPreferenceStore()
 
-    private let key = "FlexErrnDeductionPreferences"
+    private let key = "BlockErrnDeductionPreferences"
     private var cache: [String: [String: Bool]]?
 
-    private let expenseKey = "FlexErrnExpenseExclusions"
+    private let expenseKey = "BlockErrnExpenseExclusions"
     private var expenseCache: [String: Bool]?
 
     enum PreferenceType: String {

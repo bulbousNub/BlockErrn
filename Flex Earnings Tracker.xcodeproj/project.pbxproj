@@ -12,22 +12,22 @@
 			containerPortal = D196310A2F72C37700766B99 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = D19631112F72C37700766B99;
-			remoteInfo = FlexErrn;
+			remoteInfo = BlockErrn;
 		};
 		D196312A2F72C37800766B99 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D196310A2F72C37700766B99 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = D19631112F72C37700766B99;
-			remoteInfo = FlexErrn;
+			remoteInfo = BlockErrn;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		D19631122F72C37700766B99 /* FlexErrn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FlexErrn.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		D196311F2F72C37800766B99 /* FlexErrnTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlexErrnTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		D19631292F72C37800766B99 /* FlexErrnUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlexErrnUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		D1BB9EEA2F74B52A0072981D /* FlexErrn-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "FlexErrn-Info.plist"; sourceTree = "<group>"; };
+		D19631122F72C37700766B99 /* BlockErrn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BlockErrn.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D196311F2F72C37800766B99 /* BlockErrnTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlockErrnTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D19631292F72C37800766B99 /* BlockErrnUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlockErrnUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1BB9EEA2F74B52A0072981D /* BlockErrn-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "BlockErrn-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -76,7 +76,7 @@
 		D19631092F72C37700766B99 = {
 			isa = PBXGroup;
 			children = (
-				D1BB9EEA2F74B52A0072981D /* FlexErrn-Info.plist */,
+				D1BB9EEA2F74B52A0072981D /* BlockErrn-Info.plist */,
 				D19631142F72C37700766B99 /* Flex Earnings Tracker */,
 				D19631222F72C37800766B99 /* Flex Earnings TrackerTests */,
 				D196312C2F72C37800766B99 /* Flex Earnings TrackerUITests */,
@@ -87,9 +87,9 @@
 		D19631132F72C37700766B99 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D19631122F72C37700766B99 /* FlexErrn.app */,
-				D196311F2F72C37800766B99 /* FlexErrnTests.xctest */,
-				D19631292F72C37800766B99 /* FlexErrnUITests.xctest */,
+				D19631122F72C37700766B99 /* BlockErrn.app */,
+				D196311F2F72C37800766B99 /* BlockErrnTests.xctest */,
+				D19631292F72C37800766B99 /* BlockErrnUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -97,9 +97,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		D19631112F72C37700766B99 /* FlexErrn */ = {
+		D19631112F72C37700766B99 /* BlockErrn */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D19631332F72C37800766B99 /* Build configuration list for PBXNativeTarget "FlexErrn" */;
+			buildConfigurationList = D19631332F72C37800766B99 /* Build configuration list for PBXNativeTarget "BlockErrn" */;
 			buildPhases = (
 				D196310E2F72C37700766B99 /* Sources */,
 				D196310F2F72C37700766B99 /* Frameworks */,
@@ -112,16 +112,16 @@
 			fileSystemSynchronizedGroups = (
 				D19631142F72C37700766B99 /* Flex Earnings Tracker */,
 			);
-			name = FlexErrn;
+			name = BlockErrn;
 			packageProductDependencies = (
 			);
-			productName = FlexErrn;
-			productReference = D19631122F72C37700766B99 /* FlexErrn.app */;
+			productName = BlockErrn;
+			productReference = D19631122F72C37700766B99 /* BlockErrn.app */;
 			productType = "com.apple.product-type.application";
 		};
-		D196311E2F72C37800766B99 /* FlexErrnTests */ = {
+		D196311E2F72C37800766B99 /* BlockErrnTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D19631362F72C37800766B99 /* Build configuration list for PBXNativeTarget "FlexErrnTests" */;
+			buildConfigurationList = D19631362F72C37800766B99 /* Build configuration list for PBXNativeTarget "BlockErrnTests" */;
 			buildPhases = (
 				D196311B2F72C37800766B99 /* Sources */,
 				D196311C2F72C37800766B99 /* Frameworks */,
@@ -135,16 +135,16 @@
 			fileSystemSynchronizedGroups = (
 				D19631222F72C37800766B99 /* Flex Earnings TrackerTests */,
 			);
-			name = FlexErrnTests;
+			name = BlockErrnTests;
 			packageProductDependencies = (
 			);
-			productName = FlexErrnTests;
-			productReference = D196311F2F72C37800766B99 /* FlexErrnTests.xctest */;
+			productName = BlockErrnTests;
+			productReference = D196311F2F72C37800766B99 /* BlockErrnTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		D19631282F72C37800766B99 /* FlexErrnUITests */ = {
+		D19631282F72C37800766B99 /* BlockErrnUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D19631392F72C37800766B99 /* Build configuration list for PBXNativeTarget "FlexErrnUITests" */;
+			buildConfigurationList = D19631392F72C37800766B99 /* Build configuration list for PBXNativeTarget "BlockErrnUITests" */;
 			buildPhases = (
 				D19631252F72C37800766B99 /* Sources */,
 				D19631262F72C37800766B99 /* Frameworks */,
@@ -158,11 +158,11 @@
 			fileSystemSynchronizedGroups = (
 				D196312C2F72C37800766B99 /* Flex Earnings TrackerUITests */,
 			);
-			name = FlexErrnUITests;
+			name = BlockErrnUITests;
 			packageProductDependencies = (
 			);
-			productName = FlexErrnUITests;
-			productReference = D19631292F72C37800766B99 /* FlexErrnUITests.xctest */;
+			productName = BlockErrnUITests;
+			productReference = D19631292F72C37800766B99 /* BlockErrnUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -202,9 +202,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				D19631112F72C37700766B99 /* FlexErrn */,
-				D196311E2F72C37800766B99 /* FlexErrnTests */,
-				D19631282F72C37800766B99 /* FlexErrnUITests */,
+				D19631112F72C37700766B99 /* BlockErrn */,
+				D196311E2F72C37800766B99 /* BlockErrnTests */,
+				D19631282F72C37800766B99 /* BlockErrnUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -260,12 +260,12 @@
 /* Begin PBXTargetDependency section */
 		D19631212F72C37800766B99 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = D19631112F72C37700766B99 /* FlexErrn */;
+			target = D19631112F72C37700766B99 /* BlockErrn */;
 			targetProxy = D19631202F72C37800766B99 /* PBXContainerItemProxy */;
 		};
 		D196312B2F72C37800766B99 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = D19631112F72C37700766B99 /* FlexErrn */;
+			target = D19631112F72C37700766B99 /* BlockErrn */;
 			targetProxy = D196312A2F72C37800766B99 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -405,12 +405,12 @@
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "FlexErrn-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = FlexErrn;
+				INFOPLIST_FILE = "BlockErrn-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = BlockErrn;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "FlexErrn needs background location to estimate miles for each block.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "FlexErrn uses location to track the miles you drive during each block.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "BlockErrn needs background location to estimate miles for each block.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "BlockErrn uses location to track the miles you drive during each block.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "";
@@ -423,7 +423,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.FlexErrn;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrn;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -453,12 +453,12 @@
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "FlexErrn-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = FlexErrn;
+				INFOPLIST_FILE = "BlockErrn-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = BlockErrn;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "FlexErrn needs background location to estimate miles for each block.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "FlexErrn uses location to track the miles you drive during each block.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "BlockErrn needs background location to estimate miles for each block.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "BlockErrn uses location to track the miles you drive during each block.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "";
@@ -471,7 +471,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.FlexErrn;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrn;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -499,7 +499,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.FlexErrnTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrnTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -507,7 +507,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FlexErrn.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FlexErrn";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BlockErrn.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BlockErrn";
 			};
 			name = Debug;
 		};
@@ -522,7 +522,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.FlexErrnTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrnTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -530,7 +530,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FlexErrn.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FlexErrn";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BlockErrn.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BlockErrn";
 			};
 			name = Release;
 		};
@@ -543,7 +543,7 @@
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.FlexErrnUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrnUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -551,7 +551,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = FlexErrn;
+				TEST_TARGET_NAME = BlockErrn;
 			};
 			name = Debug;
 		};
@@ -564,7 +564,7 @@
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.FlexErrnUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrnUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -572,7 +572,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = FlexErrn;
+				TEST_TARGET_NAME = BlockErrn;
 			};
 			name = Release;
 		};
@@ -588,7 +588,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D19631332F72C37800766B99 /* Build configuration list for PBXNativeTarget "FlexErrn" */ = {
+		D19631332F72C37800766B99 /* Build configuration list for PBXNativeTarget "BlockErrn" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D19631342F72C37800766B99 /* Debug */,
@@ -597,7 +597,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D19631362F72C37800766B99 /* Build configuration list for PBXNativeTarget "FlexErrnTests" */ = {
+		D19631362F72C37800766B99 /* Build configuration list for PBXNativeTarget "BlockErrnTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D19631372F72C37800766B99 /* Debug */,
@@ -606,7 +606,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D19631392F72C37800766B99 /* Build configuration list for PBXNativeTarget "FlexErrnUITests" */ = {
+		D19631392F72C37800766B99 /* Build configuration list for PBXNativeTarget "BlockErrnUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D196313A2F72C37800766B99 /* Debug */,

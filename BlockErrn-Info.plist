@@ -7,6 +7,6 @@
 		<string>location</string>
 	</array>
 	<key>NSMotionUsageDescription</key>
-	<string>FlexErrn uses motion data to detect when you are in a vehicle so it can count IRS-eligible driving miles only.</string>
+	<string>BlockErrn uses motion data to detect when you are in a vehicle so it can count IRS-eligible driving miles only.</string>
 </dict>
 </plist>

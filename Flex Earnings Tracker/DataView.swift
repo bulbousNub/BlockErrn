@@ -103,7 +103,7 @@ struct DataView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
@@ -154,7 +154,7 @@ struct DataView: View {
                     Text("Backup")
                         .font(.title3)
                         .bold()
-                    Text("Create a full FlexErrn snapshot to safeguard every block, expense, note, and route. Backing up regularly keeps your history protected even if you reinstall or move devices.")
+                    Text("Create a full BlockErrn snapshot to safeguard every block, expense, note, and route. Backing up regularly keeps your history protected even if you reinstall or move devices.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -181,7 +181,7 @@ struct DataView: View {
             Button {
                 backupData()
             } label: {
-                Label("Backup FlexErrn Data", systemImage: "square.and.arrow.up")
+                Label("Backup BlockErrn Data", systemImage: "square.and.arrow.up")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -225,7 +225,7 @@ struct DataView: View {
                     Text("Import")
                         .font(.title3)
                         .bold()
-                    Text("Restore a previously exported FlexErrn backup whenever you switch phones, reinstall, or need to recover your blocks and settings.")
+                    Text("Restore a previously exported BlockErrn backup whenever you switch phones, reinstall, or need to recover your blocks and settings.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -239,7 +239,7 @@ struct DataView: View {
             Button {
                 showImporter = true
             } label: {
-                Label("Import FlexErrn Backup", systemImage: "square.and.arrow.down")
+                Label("Import BlockErrn Backup", systemImage: "square.and.arrow.down")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -330,7 +330,7 @@ struct DataView: View {
                     Text("Data Management")
                         .font(.title2)
                         .bold()
-                    Text("Manage backups, imports, exports, and destructive resets for your FlexErrn history.")
+                    Text("Manage backups, imports, exports, and destructive resets for your BlockErrn history.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -404,7 +404,7 @@ struct DataView: View {
         return .red
     }
 
-    private static let lastBackupKey = "FlexErrnLastBackupDate"
+    private static let lastBackupKey = "BlockErrnLastBackupDate"
     private static let backupDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .short
@@ -446,7 +446,7 @@ struct DataView: View {
     private func defaultCSVFilename() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "FlexErrnData-\(formatter.string(from: Date())).csv"
+        return "BlockErrnData-\(formatter.string(from: Date())).csv"
     }
 
     private func makeCSVText() -> String {
@@ -826,8 +826,8 @@ struct DataView: View {
 
         try context.save()
     }
-    private static let backupJSONFilename = "FlexErrnBackup.json"
-    private static let backupFormatKey = "FlexErrnBackupFormatUseZip"
+    private static let backupJSONFilename = "BlockErrnBackup.json"
+    private static let backupFormatKey = "BlockErrnBackupFormatUseZip"
     private static let backupReceiptsFolder = "Receipts"
 }
 

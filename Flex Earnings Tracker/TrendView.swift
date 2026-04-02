@@ -11,7 +11,7 @@ struct TrendView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     if blocks.isEmpty {
                         emptyState
@@ -390,7 +390,7 @@ struct TrendView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(FlexErrnTheme.backgroundGradient, in: Capsule())
+                .background(BlockErrnTheme.backgroundGradient, in: Capsule())
             }
         }
     }
@@ -401,7 +401,7 @@ struct TrendView: View {
 
         var body: some View {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         ForEach(stats) { stat in

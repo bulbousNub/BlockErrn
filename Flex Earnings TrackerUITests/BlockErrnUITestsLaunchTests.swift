@@ -1,5 +1,5 @@
 //
-//  FlexErrnUITestsLaunchTests.swift
+//  BlockErrnUITestsLaunchTests.swift
 //  Flex Earnings TrackerUITests
 //
 //  Created by TeJay Guilliams on 3/24/26.
@@ -7,7 +7,7 @@
 
 import XCTest
 
-final class FlexErrnUITestsLaunchTests: XCTestCase {
+final class BlockErrnUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

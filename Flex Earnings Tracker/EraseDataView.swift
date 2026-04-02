@@ -12,7 +12,7 @@ struct EraseDataView: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 16) {
@@ -57,7 +57,7 @@ struct EraseDataView: View {
                     }
                     .padding()
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .shadow(color: FlexErrnTheme.cardShadowColor, radius: 20, x: 0, y: 10)
+                    .shadow(color: BlockErrnTheme.cardShadowColor, radius: 20, x: 0, y: 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding()

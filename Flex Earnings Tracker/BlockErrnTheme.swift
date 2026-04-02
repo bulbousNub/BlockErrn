@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum FlexErrnTheme {
+enum BlockErrnTheme {
     static let backgroundGradient = LinearGradient(
         gradient: Gradient(colors: [
             Color(red: 0.12, green: 0.22, blue: 0.48),
@@ -21,17 +21,17 @@ enum FlexErrnTheme {
     )
 }
 
-private struct FlexErrnCardModifier: ViewModifier {
+private struct BlockErrnCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding()
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: FlexErrnTheme.cardShadowColor, radius: 20, x: 0, y: 10)
+            .shadow(color: BlockErrnTheme.cardShadowColor, radius: 20, x: 0, y: 10)
     }
 }
 
 extension View {
     func flexErrnCardStyle() -> some View {
-        modifier(FlexErrnCardModifier())
+        modifier(BlockErrnCardModifier())
     }
 }

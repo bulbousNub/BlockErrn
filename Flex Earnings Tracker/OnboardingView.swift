@@ -19,7 +19,7 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient
+            BlockErrnTheme.backgroundGradient
                 .ignoresSafeArea()
             Color.black.opacity(0.35)
                 .ignoresSafeArea()
@@ -76,7 +76,7 @@ struct OnboardingView: View {
     private var introStep: some View {
         VStack(spacing: 14) {
             iconBadge("sparkles")
-            Text("Welcome aboard, FlexErrn Drivers!")
+            Text("Welcome aboard, BlockErrn Drivers!")
                 .font(.title2)
                 .bold()
                 .foregroundColor(.primary)
@@ -97,7 +97,7 @@ struct OnboardingView: View {
                 .frame(width: 140, height: 140)
                 .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
                 .shadow(color: Color.black.opacity(0.25), radius: 15, x: 0, y: 6)
-            Text("FlexErrn")
+            Text("BlockErrn")
                 .font(.largeTitle)
                 .bold()
                 .foregroundColor(.primary)
@@ -141,7 +141,7 @@ struct OnboardingView: View {
             Text("Why we need location")
                 .font(.headline)
                 .foregroundColor(.primary)
-            Text("We use GPS to measure the miles you drive for each block and keep your earnings estimates accurate, even while FlexErrn runs in the background.")
+            Text("We use GPS to measure the miles you drive for each block and keep your earnings estimates accurate, even while BlockErrn runs in the background.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             VStack(spacing: 12) {
@@ -170,7 +170,7 @@ struct OnboardingView: View {
                 .font(.title2)
                 .bold()
                 .foregroundColor(.primary)
-            Text("Give FlexErrn access to motion data so it can tell when you’re actually in a vehicle, keeping the IRS mileage clean.")
+            Text("Give BlockErrn access to motion data so it can tell when you’re actually in a vehicle, keeping the IRS mileage clean.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -254,7 +254,7 @@ struct OnboardingView: View {
 
     private var locationStatusMessage: String {
         if isAuthorizedAlways {
-            return "Background GPS is ready, so FlexErrn can keep counting miles even when the app leaves the foreground."
+            return "Background GPS is ready, so BlockErrn can keep counting miles even when the app leaves the foreground."
         } else {
             return "We might not track mileage properly unless location is allowed always. Tap the button above to enable full tracking."
         }
@@ -265,7 +265,7 @@ struct OnboardingView: View {
         case .authorized:
             return "Motion updates are enabled, so we only count the time you are actually driving."
         case .denied, .restricted:
-            return "Motion tracking is blocked. Open Settings → FlexErrn to allow vehicle detection."
+            return "Motion tracking is blocked. Open Settings → BlockErrn to allow vehicle detection."
         case .notDetermined:
             return "Grant access on the next screen so we can ignore walking when measuring mileage."
         @unknown default:
