@@ -17,6 +17,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
     private var isShowingActiveBlockDetail = false
     private var activeWorkModeTemplate: CPInformationTemplate?
     private var activeDetailTemplate: CPInformationTemplate?
+    private var detailBlockID: UUID?
 
     @objc(templateApplicationScene:didConnectInterfaceController:)
     public dynamic func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene, didConnect interfaceController: CPInterfaceController) {
@@ -56,10 +57,10 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
 
     private func startDashboardRefresh() {
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             Task { await self?.refreshInterface() }
         }
-        refreshTimer?.tolerance = 5
+        refreshTimer?.tolerance = 2
         Task { await refreshInterface() }
     }
 
@@ -112,7 +113,29 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
 
     private func refreshInterface() async {
         guard let interfaceController else { return }
+
+        // Sync with iOS app: if a block was started from the phone,
+        // MileageTracker will be tracking but CarPlay's workModeBlockID won't be set.
+        if workModeBlockID == nil, mileageTracker.isTracking, let trackingID = mileageTracker.currentBlockID {
+            if let block = fetchBlock(by: trackingID) {
+                workModeBlockID = trackingID
+                isShowingActiveBlockDetail = false
+                activeDetailTemplate = nil
+                showWorkMode(for: block)
+                return
+            }
+        }
+
         if let blockID = workModeBlockID, let block = fetchBlock(by: blockID) {
+            // If the block was completed from the iOS app (or tracking stopped),
+            // exit work mode and return to the dashboard.
+            if block.status == .completed || (!mileageTracker.isTracking && mileageTracker.currentBlockID != blockID) {
+                workModeBlockID = nil
+                activeWorkModeTemplate = nil
+                mapHost.clearRoute()
+                await updateDashboard()
+                return
+            }
             if let existing = activeWorkModeTemplate {
                 existing.items = makeWorkModeItems(for: block)
             } else {
@@ -121,9 +144,27 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
             }
             return
         }
-        if isShowingActiveBlockDetail {
+
+        // If showing the block detail screen, check whether that block
+        // was started from the iOS app (userStartTime set or tracking began).
+        if isShowingActiveBlockDetail, let detailTemplate = activeDetailTemplate {
+            // Find the block being viewed by checking which block has a
+            // userStartTime that was recently set or is being tracked
+            if mileageTracker.isTracking, let trackingID = mileageTracker.currentBlockID,
+               let block = fetchBlock(by: trackingID) {
+                workModeBlockID = trackingID
+                isShowingActiveBlockDetail = false
+                activeDetailTemplate = nil
+                showWorkMode(for: block)
+                return
+            }
+            // Also update the detail items to reflect any changes
+            if let blockID = detailBlockID, let block = fetchBlock(by: blockID) {
+                detailTemplate.items = makeBlockDetailItems(for: block)
+            }
             return
         }
+
         await updateDashboard()
     }
 
@@ -209,7 +250,17 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
 
     private func showActiveBlockDetail(_ block: Block) {
         guard let interfaceController else { return }
+
+        // If this block is already being tracked (started from iOS app),
+        // go straight to work mode instead of showing "Start Block"
+        if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
+            workModeBlockID = block.id
+            showWorkMode(for: block)
+            return
+        }
+
         isShowingActiveBlockDetail = true
+        detailBlockID = block.id
         let detailTemplate = makeActiveBlockDetailTemplate(for: block)
         activeDetailTemplate = detailTemplate
         interfaceController.setRootTemplate(detailTemplate, animated: true, completion: nil)
@@ -223,6 +274,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
         }
         let backButton = CPTextButton(title: "Back", textStyle: .cancel) { [weak self] _ in
             self?.activeDetailTemplate = nil
+            self?.detailBlockID = nil
             self?.isShowingActiveBlockDetail = false
             Task { await self?.refreshInterface() }
         }
@@ -257,13 +309,19 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
             block.recordAuditEntry(action: .updated, field: "userStartTime", newValue: auditDateString(startTime), note: "Started via CarPlay")
         }
         try? context.save()
-        mileageTracker.requestAuthorization()
-        mileageTracker.startTracking(for: block.id)
-        LiveActivityManager.shared.startActivity(
-            blockID: block.id,
-            scheduledStart: block.scheduledStartDate,
-            scheduledEnd: block.scheduledEndDate
-        )
+
+        // Only start GPS tracking if not already tracking for this block
+        // (the iOS app may have already started it)
+        let alreadyTracking = mileageTracker.isTracking && mileageTracker.currentBlockID == block.id
+        if !alreadyTracking {
+            mileageTracker.requestAuthorization()
+            mileageTracker.startTracking(for: block.id)
+            LiveActivityManager.shared.startActivity(
+                blockID: block.id,
+                scheduledStart: block.scheduledStartDate,
+                scheduledEnd: block.scheduledEndDate
+            )
+        }
         DispatchQueue.main.async {
             WorkModeCoordinator.shared.startManually(block)
         }
@@ -289,7 +347,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
         }
 
         let template = CPInformationTemplate(
-            title: "Work Mode",
+            title: "BlockErrn - Work Mode",
             layout: .twoColumn,
             items: items,
             actions: [stopButton]
@@ -317,7 +375,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
     }
 
     private func liveMiles(for block: Block) -> Decimal {
-        if workModeBlockID == block.id {
+        if workModeBlockID == block.id || (mileageTracker.isTracking && mileageTracker.currentBlockID == block.id) {
             return block.miles + Decimal(mileageTracker.currentMiles)
         }
         return block.miles
