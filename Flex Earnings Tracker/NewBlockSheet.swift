@@ -38,7 +38,7 @@ struct NewBlockSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         overviewCard
@@ -114,11 +114,25 @@ struct NewBlockSheet: View {
             }
         }
         block.auditEntries.append(AuditEntry(action: AuditAction.created, note: "Block added manually"))
+        logBlockCreationFields(for: block, note: "Captured via manual entry", currencyFormatter: currencyString)
         context.insert(block)
-        let includePreReminder = settings.first?.includePreReminder ?? true
-        NotificationManager.shared.scheduleBlockReminders(for: block, includePreReminder: includePreReminder)
+        NotificationManager.shared.scheduleBlockReminders(for: block, config: defaultReminderConfiguration)
         try? context.save()
         dismiss()
+    }
+
+    private var defaultReminderConfiguration: NotificationManager.ReminderConfiguration {
+        let setting = settings.first
+        return NotificationManager.ReminderConfiguration(
+            startMinutes: setting?.reminderBeforeStartMinutes ?? 45,
+            preEndMinutes: setting?.reminderBeforeEndMinutes ?? 15,
+            tipHours: setting?.tipReminderHours ?? 24,
+            startEnabled: true,
+            preEndEnabled: true,
+            endEnabled: true,
+            tipEnabled: hasTips,
+            hasTips: hasTips
+        )
     }
 
     private var totalDurationMinutes: Int {
@@ -348,7 +362,7 @@ private struct ManualExpenseSheet: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     header

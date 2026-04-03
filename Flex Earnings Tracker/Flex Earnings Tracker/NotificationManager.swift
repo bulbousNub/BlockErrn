@@ -16,36 +16,78 @@ final class NotificationManager {
         }
     }
 
-    func scheduleBlockReminders(for block: Block, includePreReminder: Bool = true) {
-        let identifiers = pendingIdentifiers(for: block)
-        center.removePendingNotificationRequests(withIdentifiers: [identifiers.preAlert, identifiers.finalAlert])
+    func scheduleBlockReminders(for block: Block, config: ReminderConfiguration) {
+        let identifiers = identifiers(for: block.id)
+        center.removePendingNotificationRequests(withIdentifiers: identifiers.allIdentifiers)
 
         let now = Date()
+        let startDate = block.scheduledStartDate
         let endDate = block.scheduledEndDate
         guard endDate > now else { return }
 
-        if includePreReminder,
-           let preEndDate = Calendar.current.date(byAdding: .minute, value: -15, to: endDate),
-           preEndDate > now {
+        if config.startEnabled,
+           let startAlert = Calendar.current.date(byAdding: .minute, value: -config.startMinutes, to: startDate),
+           startAlert > now {
             schedule(
-                id: identifiers.preAlert,
-                title: "15 minutes to block end",
-                body: "Your block ends soon—stop mileage tracking after you wrap up to keep everything tidy.",
-                date: preEndDate
+                id: identifiers.start,
+                title: "Upcoming block",
+                body: "\(config.startMinutes) minutes to block start — get ready to roll.",
+                date: startAlert
             )
         }
 
-        schedule(
-            id: identifiers.finalAlert,
-            title: "Block end reached",
-            body: "Block scheduled end time arrived. Don’t forget to stop GPS tracking if you’re done.",
-            date: endDate
-        )
+        let terminalStatus = block.status
+        let shouldSkipEndReminders = terminalStatus == .completed || terminalStatus == .cancelled
+
+        if config.preEndEnabled,
+           !shouldSkipEndReminders,
+           let events = Calendar.current.date(byAdding: .minute, value: -config.preEndMinutes, to: endDate),
+           events > now {
+            schedule(
+                id: identifiers.preEnd,
+                title: "Block ending soon",
+                body: "You have \(config.preEndMinutes) minutes until this block ends — wrap things up or pause tracking.",
+                date: events
+            )
+        }
+
+        if config.endEnabled,
+           !shouldSkipEndReminders {
+            schedule(
+                id: identifiers.end,
+                title: "Block end reached",
+                body: "Block scheduled end time arrived. Don’t forget to stop GPS tracking when you're finished.",
+                date: endDate
+            )
+        }
+
+        if config.tipEnabled && config.hasTips {
+            let tipDate = Calendar.current.date(byAdding: .hour, value: config.tipHours, to: endDate)
+            if let tipDate, tipDate > now {
+                schedule(
+                    id: identifiers.tip,
+                    title: "\(config.tipHours)-hour tip reminder",
+                    body: "It’s been \(config.tipHours) hour(s) since this block ended — enter any tips you earned for accurate tracking.",
+                    date: tipDate
+                )
+            }
+        }
     }
 
     func cancelReminders(for blockID: UUID) {
         let identifiers = identifiers(for: blockID)
-        center.removePendingNotificationRequests(withIdentifiers: [identifiers.preAlert, identifiers.finalAlert])
+        center.removePendingNotificationRequests(withIdentifiers: identifiers.allIdentifiers)
+    }
+
+    struct ReminderConfiguration {
+        let startMinutes: Int
+        let preEndMinutes: Int
+        let tipHours: Int
+        let startEnabled: Bool
+        let preEndEnabled: Bool
+        let endEnabled: Bool
+        let tipEnabled: Bool
+        let hasTips: Bool
     }
 
     private func schedule(id: String, title: String, body: String, date: Date) {
@@ -64,12 +106,24 @@ final class NotificationManager {
         center.add(request, withCompletionHandler: nil)
     }
 
-    private func pendingIdentifiers(for block: Block) -> (preAlert: String, finalAlert: String) {
-        identifiers(for: block.id)
+    private func identifiers(for blockID: UUID) -> NotificationIdentifiers {
+        let base = "flexerrn.block.\(blockID.uuidString)"
+        return NotificationIdentifiers(
+            start: "\(base).start",
+            preEnd: "\(base).pre",
+            end: "\(base).end",
+            tip: "\(base).tip"
+        )
     }
 
-    private func identifiers(for blockID: UUID) -> (preAlert: String, finalAlert: String) {
-        let base = "flexerrn.block.\(blockID.uuidString)"
-        return (preAlert: "\(base).pre", finalAlert: "\(base).final")
+    private struct NotificationIdentifiers {
+        let start: String
+        let preEnd: String
+        let end: String
+        let tip: String
+
+        var allIdentifiers: [String] {
+            [start, preEnd, end, tip]
+        }
     }
 }

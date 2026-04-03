@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import MapKit
 import CoreLocation
+import Combine
 
 struct CalculatorView: View {
 
@@ -23,6 +24,11 @@ struct CalculatorView: View {
     @State private var showAcceptedAlert: Bool = false
     @State private var acceptedBlock: Block? = nil
     @State private var currentTime: Date = Date()
+    @State private var timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+    @State private var startReminderEnabled: Bool = true
+    @State private var preEndReminderEnabled: Bool = true
+    @State private var endReminderEnabled: Bool = true
+    @State private var tipReminderEnabled: Bool = false
     @State private var workModeBlock: Block? = nil
     @State private var workModeCollapsed: Bool = false
     @State private var showWorkModeExpenseSheet: Bool = false
@@ -51,12 +57,16 @@ struct CalculatorView: View {
         workModeBlock != nil
     }
 
-    private var workModeRoutePoints: [RoutePoint]? {
+    private var workModeRouteSegments: [[RoutePoint]]? {
         guard let block = workModeBlock else { return nil }
+        var segments = block.routeSegments ?? []
         if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
-            return mileageTracker.currentRoutePoints
+            let live = mileageTracker.currentRoutePoints
+            if !live.isEmpty {
+                segments.append(live)
+            }
         }
-        return block.routePoints
+        return segments.isEmpty ? nil : segments
     }
 
     private var workModeMileageDisplay: String? {
@@ -91,17 +101,23 @@ struct CalculatorView: View {
 
     private func handleWorkModeStop() {
         guard let block = workModeBlock else { return }
-        if let (sessionMiles, routePoints) = mileageTracker.stopTracking(for: block.id) {
-            block.miles += Decimal(sessionMiles)
-            if var existingPoints = block.routePoints {
-                existingPoints.append(contentsOf: routePoints)
-                block.routePoints = existingPoints
+            if let (sessionMiles, routePoints) = mileageTracker.stopTracking(for: block.id) {
+                let oldMiles = block.miles
+                block.miles += Decimal(sessionMiles)
+                block.appendRouteSegment(routePoints)
+                block.recordAuditEntry(
+                    action: .milesUpdated,
+                    field: "miles",
+                    oldValue: auditDecimalString(oldMiles),
+                    newValue: auditDecimalString(block.miles),
+                    note: "Captured during work mode stop"
+                )
+                block.updatedAt = Date()
+                try? context.save()
+                LiveActivityManager.shared.endActivity(finalMiles: NSDecimalNumber(decimal: block.miles).doubleValue)
             } else {
-                block.routePoints = routePoints
+                LiveActivityManager.shared.endActivity()
             }
-            block.updatedAt = Date()
-            try? context.save()
-        }
     }
 
     private func requestResetTrackedMiles() {
@@ -122,8 +138,18 @@ struct CalculatorView: View {
     private func completeBlockAfterStoppingGPS(_ block: Block) {
         if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
             handleWorkModeStop()
+        } else {
+            LiveActivityManager.shared.endActivity()
         }
-        complete(block)
+        let completionTime = Date()
+        block.userCompletionTime = completionTime
+        block.recordAuditEntry(
+            action: .updated,
+            field: "userCompletionTime",
+            newValue: auditDateString(completionTime),
+            note: "Completed via work mode"
+        )
+        complete(block, note: "Completed from work mode")
         withAnimation {
             workModeBlock = nil
             workModeCollapsed = false
@@ -145,6 +171,20 @@ struct CalculatorView: View {
             showSwitchBlockAlert = true
         } else {
             workModeCoordinator.forceActive(block)
+            let startTime = Date()
+            block.userStartTime = startTime
+            block.recordAuditEntry(
+                action: .updated,
+                field: "userStartTime",
+                newValue: auditDateString(startTime),
+                note: "Started via work mode"
+            )
+            try? context.saveIfNeeded()
+            LiveActivityManager.shared.startActivity(
+                blockID: block.id,
+                scheduledStart: block.scheduledStartDate,
+                scheduledEnd: block.scheduledEndDate
+            )
             enterWorkMode(block)
         }
     }
@@ -155,9 +195,17 @@ struct CalculatorView: View {
                 VStack(spacing: 12) {
                     WorkModeView(
                         block: workBlock,
-                        routePoints: workModeRoutePoints,
+                        routeSegments: workModeRouteSegments,
                         mileageDisplay: workModeMileageDisplay,
                         isTracking: mileageTracker.isTracking && mileageTracker.currentBlockID == workBlock.id,
+                        packageCount: Binding(
+                            get: { workBlock.packageCount },
+                            set: { workBlock.packageCount = $0; workBlock.updatedAt = Date(); try? context.save() }
+                        ),
+                        stopCount: Binding(
+                            get: { workBlock.stopCount },
+                            set: { workBlock.stopCount = $0; workBlock.updatedAt = Date(); try? context.save() }
+                        ),
                         onAddExpense: { showWorkModeExpenseSheet = true },
                         onStartTracking: {
                             mileageTracker.requestAuthorization()
@@ -180,44 +228,34 @@ struct CalculatorView: View {
             }
         }
 
-    private var includePreReminderBinding: Binding<Bool> {
-        Binding(
-            get: { settings.first?.includePreReminder ?? true },
-            set: { newValue in
-                guard let setting = settings.first else { return }
-                setting.includePreReminder = newValue
-                try? context.save()
-            }
-        )
-    }
-
-    private var includePreReminderPreference: Bool {
-        settings.first?.includePreReminder ?? true
-    }
-
-    private var reminderDescription: String {
-        if includePreReminderPreference {
-            return "FlexErrn will remind you 15 minutes before your block ends and once more when the block finishes so you remember to stop GPS tracking."
-        } else {
-            return "FlexErrn will only remind you at the scheduled block end time to stop GPS tracking."
-        }
-    }
-
     private var datePickerControlColor: Color {
         colorScheme == .light ? .primary : .accentColor
+    }
+
+    private var reminderBeforeStartMinutes: Int {
+        settings.first?.reminderBeforeStartMinutes ?? 45
+    }
+
+    private var reminderBeforeEndMinutes: Int {
+        settings.first?.reminderBeforeEndMinutes ?? 15
+    }
+
+    private var tipReminderHourCount: Int {
+        settings.first?.tipReminderHours ?? 24
     }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
-        ScrollView(showsIndicators: false) {
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 if !activeBlocks.isEmpty {
                     sectionBlockList(
                         title: "Active blocks",
                         blocks: activeBlocks,
                         showStartButton: true,
+                        showMenu: false,
                         onStartBlock: startBlock,
                         onCompleteBlock: requestCompleteBlock
                     )
@@ -230,10 +268,7 @@ struct CalculatorView: View {
                     if shouldShowPlanCard {
                         heroCard
                     }
-                    earningsCard
-                    scheduleCard
-                    remindersCard
-                    actionRow
+                    calculateAndAcceptCard
                 }
             }
             .padding(.horizontal)
@@ -243,15 +278,19 @@ struct CalculatorView: View {
                     startTimer()
                 }
             }
-            .navigationTitle("FlexErrn")
-            .onAppear { startTimer() }
+            .navigationTitle("BlockErrn")
+            .onAppear {
+                startTimer()
+                preEndReminderEnabled = settings.first?.includePreReminder ?? true
+            }
+            .onReceive(timer) { currentTime = $0 }
             .onChange(of: selectedHours) { _ in
                 syncEndToDuration()
             }
             .onChange(of: selectedMinutes) { _ in
                 syncEndToDuration()
             }
-            .alert("Block accepted", isPresented: $showAcceptedAlert) {
+            .alert("Block Accepted", isPresented: $showAcceptedAlert) {
                 Button("View in Log") {
                     tabSelectionState.selectedTab = 1
                 }
@@ -305,8 +344,25 @@ struct CalculatorView: View {
                     handleWorkModeStop()
                 }
                 workModeCoordinator.forceActive(block)
+                block.recordAuditEntry(
+                    action: .updated,
+                    field: "activeState",
+                    newValue: "true",
+                    note: "Promoted via work mode coordinator"
+                )
+                context.saveIfNeeded()
                 enterWorkMode(block)
                 workModeCoordinator.blockToStart = nil
+            }
+            .onChange(of: workModeCoordinator.blockToStop) { block in
+                guard let block = block else { return }
+                if workModeBlock?.id == block.id {
+                    withAnimation {
+                        workModeBlock = nil
+                        workModeCollapsed = false
+                    }
+                }
+                workModeCoordinator.blockToStop = nil
             }
         }
     }
@@ -341,10 +397,10 @@ struct CalculatorView: View {
         try? context.save()
     }
 
-    private var earningsCard: some View {
+    private var calculateAndAcceptCard: some View {
         VStack(spacing: 16) {
             HStack {
-                Text("Calculator")
+                Text("Calculate & Accept Block")
                     .font(.headline)
                 Spacer()
             }
@@ -404,80 +460,122 @@ struct CalculatorView: View {
                     .font(.caption2)
                     .foregroundStyle(.red)
             }
-        }
-        .flexErrnCardStyle()
-    }
-
-    private var scheduleCard: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Block window")
+            Divider()
+            VStack(spacing: 16) {
+                HStack {
+                    Text("Block Schedule")
+                        .font(.headline)
+                    Spacer()
+                    Picker("", selection: $dateMode) {
+                        Text("Today").tag(0)
+                        Text("Tomorrow").tag(1)
+                        Text("Future").tag(2)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 220)
+                    .onChange(of: dateMode) { mode in
+                        let calendar = Calendar.current
+                        switch mode {
+                        case 0:
+                            alignScheduleDate(with: Date())
+                        case 1:
+                            let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+                            alignScheduleDate(with: tomorrow)
+                        default:
+                            let validFuture = selectedDate > Date() ? selectedDate : (calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date())
+                            alignScheduleDate(with: validFuture)
+                        }
+                    }
+                }
+                if dateMode == 2 {
+                    DatePicker("Select date", selection: $selectedDate, in: Date()..., displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity)
+                        .tint(datePickerControlColor)
+                }
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text("Start time")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        DatePicker("", selection: Binding(get: { selectedStartTime }, set: startTimeChanged), displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                    }
+                    Spacer()
+                    VStack(alignment: .leading) {
+                        Text("End time")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        DatePicker("", selection: Binding(get: { selectedEndTime }, set: endTimeChanged), displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                    }
+                }
+                Divider()
+                HStack {
+                    Text("Block Reminders")
+                        .font(.headline)
+                    Spacer()
+                }
+                reminderToggleGrid
+            }
+            Button {
+                acceptBlock()
+            } label: {
+                Text("Accept Block")
                     .font(.headline)
-                Spacer()
-                Picker("", selection: $dateMode) {
-                    Text("Today").tag(0)
-                    Text("Future").tag(1)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 180)
-            }
-            if dateMode == 1 {
-                DatePicker("Select date", selection: $selectedDate, in: Date()..., displayedComponents: .date)
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
                     .frame(maxWidth: .infinity)
-                    .tint(datePickerControlColor)
+                    .padding()
             }
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Start time")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    DatePicker("", selection: Binding(get: { selectedStartTime }, set: startTimeChanged), displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                }
-                Spacer()
-                VStack(alignment: .leading) {
-                    Text("End time")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    DatePicker("", selection: Binding(get: { selectedEndTime }, set: endTimeChanged), displayedComponents: .hourAndMinute)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                }
-            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .buttonBorderShape(.capsule)
         }
         .flexErrnCardStyle()
     }
 
-    private var remindersCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Reminders")
-                .font(.headline)
-            Text(reminderDescription)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Toggle("Include 15-minute reminder", isOn: includePreReminderBinding)
-                .labelsHidden()
+    private var reminderToggleGrid: some View {
+        let columns = [GridItem(.flexible()), GridItem(.flexible())]
+        return LazyVGrid(columns: columns, spacing: 8) {
+            reminderToggle(
+                title: "\(reminderBeforeStartMinutes) Minutes Before Start",
+                isOn: $startReminderEnabled
+            )
+            reminderToggle(
+                title: "\(reminderBeforeEndMinutes) Minutes Before End",
+                isOn: $preEndReminderEnabled
+            )
+            reminderToggle(
+                title: "Reminder at Block End",
+                isOn: $endReminderEnabled
+            )
+            reminderToggle(
+                title: "\(tipReminderHourCount)-hour Tip Reminder",
+                isOn: $tipReminderEnabled,
+                disabled: !hasTipsOnHome
+            )
         }
+    }
+
+    private func reminderToggle(title: String, isOn: Binding<Bool>, disabled: Bool = false) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(disabled ? .secondary : .primary)
+                .multilineTextAlignment(.leading)
+        }
+        .toggleStyle(.switch)
+        .disabled(disabled)
+        .opacity(disabled ? 0.6 : 1)
+        .padding(12)
         .frame(maxWidth: .infinity)
-        .flexErrnCardStyle()
-    }
-
-    private var actionRow: some View {
-        Button {
-            acceptBlock()
-        } label: {
-            Text("Accept Block")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .buttonBorderShape(.capsule)
+        .background(.ultraThinMaterial.opacity(disabled ? 0.4 : 0.6), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(disabled ? 0.15 : 0.25), lineWidth: 1)
+        )
     }
 
     private func sectionBlockList(
@@ -485,6 +583,7 @@ struct CalculatorView: View {
         blocks: [Block],
         showStartButton: Bool,
         showCompleteAction: Bool = true,
+        showMenu: Bool = true,
         onStartBlock: ((Block) -> Void)? = nil,
         onCompleteBlock: ((Block) -> Void)? = nil
     ) -> some View {
@@ -493,15 +592,16 @@ struct CalculatorView: View {
                 .font(.headline)
             ForEach(blocks, id: \.id) { block in
                 NavigationLink(destination: BlockDetailView(block: block)) {
-                    BlockCard(
-                        block: block,
-                        showStartButton: showStartButton,
-                        isWorkModeBlock: workModeBlock?.id == block.id,
-                        isResumableBlock: startedBlockID == block.id && workModeBlock?.id != block.id,
-                        showCompleteAction: showCompleteAction,
-                        onStartBlock: onStartBlock,
-                        onCompleteBlock: onCompleteBlock
-                    )
+                BlockCard(
+                    block: block,
+                    showStartButton: showStartButton,
+                    isWorkModeBlock: workModeBlock?.id == block.id,
+                    isResumableBlock: startedBlockID == block.id && workModeBlock?.id != block.id,
+                    showCompleteAction: showCompleteAction,
+                    showMenu: showMenu && (workModeBlock?.id != block.id),
+                    onStartBlock: onStartBlock,
+                    onCompleteBlock: onCompleteBlock
+                )
                 }
                 .buttonStyle(.plain)
             }
@@ -516,6 +616,7 @@ struct CalculatorView: View {
         isWorkModeBlock: Bool = false,
         isResumableBlock: Bool = false,
         showCompleteAction: Bool = true,
+        showMenu: Bool = true,
         onStartBlock: ((Block) -> Void)? = nil,
         onCompleteBlock: ((Block) -> Void)? = nil
     ) -> some View {
@@ -527,19 +628,30 @@ struct CalculatorView: View {
                 Text(block.status.displayName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Menu {
-                    Button("Make Active") {
-                        workModeCoordinator.forceActive(block)
-                        tabSelectionState.selectedTab = 0
+                if showMenu {
+                    Menu {
+                        if block.isEligibleForMakeActive {
+                            Button("Make Active") {
+                                workModeCoordinator.forceActive(block)
+                                block.recordAuditEntry(
+                                    action: .updated,
+                                    field: "activeState",
+                                    newValue: "true",
+                                    note: "Promoted from calculator view"
+                                )
+                                context.saveIfNeeded()
+                                tabSelectionState.selectedTab = 0
+                            }
+                        }
+                        if showCompleteAction {
+                            Button("Complete") { complete(block) }
+                                .disabled(block.status == .completed)
+                        }
+                        Button("Cancel") { cancel(block) }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
                     }
-                    if showCompleteAction {
-                        Button("Complete") { complete(block) }
-                            .disabled(block.status == .completed)
-                    }
-                    Button("Cancel") { cancel(block) }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.title3)
                 }
             }
             Text("\(blockTimeFormatter.string(from: startDate(for: block))) – \(blockTimeFormatter.string(from: endDate(for: block)))")
@@ -555,10 +667,14 @@ struct CalculatorView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Gross: \(formatCurrency(block.grossPayout))")
                             .font(.caption2)
-                        Text("Expenses: \(formatCurrency(block.additionalExpensesTotal))")
-                            .font(.caption2)
-                        Text("Mileage cost: \(formatCurrency(mileageCost))")
-                            .font(.caption2)
+                        if block.shouldIncludeExpensesDeduction {
+                            Text("Expenses: \(formatCurrency(block.additionalExpensesTotal))")
+                                .font(.caption2)
+                        }
+                        if block.shouldIncludeMileageDeduction {
+                            Text("Mileage cost: \(formatCurrency(mileageCost))")
+                                .font(.caption2)
+                        }
                     }
                     Spacer()
                     VStack(alignment: .leading, spacing: 2) {
@@ -601,9 +717,11 @@ struct CalculatorView: View {
 
     private struct WorkModeView: View {
         let block: Block
-        let routePoints: [RoutePoint]?
+        let routeSegments: [[RoutePoint]]?
         let mileageDisplay: String?
         let isTracking: Bool
+        @Binding var packageCount: Int?
+        @Binding var stopCount: Int?
         let onAddExpense: () -> Void
         let onStartTracking: () -> Void
         let onStopTracking: () -> Void
@@ -625,7 +743,7 @@ struct CalculatorView: View {
                             .foregroundColor(.primary)
                     }
                 }
-                WorkModeMapView(routePoints: routePoints)
+                WorkModeMapView(routeSegments: routeSegments, showsEndAnnotation: !isTracking)
                     .frame(height: 200)
                 if let mileage = mileageDisplay {
                     HStack {
@@ -635,6 +753,50 @@ struct CalculatorView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                HStack(spacing: 16) {
+                    HStack(spacing: 6) {
+                        Text("Pkgs")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("0", text: Binding(
+                            get: { packageCount.map(String.init) ?? "" },
+                            set: { newText in
+                                if newText.isEmpty {
+                                    packageCount = nil
+                                } else if let i = Int(newText) {
+                                    packageCount = i
+                                }
+                            }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 50)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    HStack(spacing: 6) {
+                        Text("Stops")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("0", text: Binding(
+                            get: { stopCount.map(String.init) ?? "" },
+                            set: { newText in
+                                if newText.isEmpty {
+                                    stopCount = nil
+                                } else if let i = Int(newText) {
+                                    stopCount = i
+                                }
+                            }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 50)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    Spacer()
+                }
+                .keyboardDoneToolbar()
                 HStack(spacing: 12) {
                     Button("Add Expense") {
                         onAddExpense()
@@ -662,7 +824,8 @@ struct CalculatorView: View {
     }
 
     private struct WorkModeMapView: UIViewRepresentable {
-        let routePoints: [RoutePoint]?
+        let routeSegments: [[RoutePoint]]?
+        let showsEndAnnotation: Bool
 
         func makeCoordinator() -> Coordinator {
             Coordinator()
@@ -672,7 +835,7 @@ struct CalculatorView: View {
             let mapView = MKMapView()
             mapView.delegate = context.coordinator
             mapView.showsCompass = false
-            mapView.showsUserLocation = false
+            mapView.showsUserLocation = true
             mapView.isRotateEnabled = false
             mapView.isPitchEnabled = false
             mapView.layer.cornerRadius = 16
@@ -683,8 +846,11 @@ struct CalculatorView: View {
         func updateUIView(_ mapView: MKMapView, context: Context) {
             mapView.removeOverlays(mapView.overlays)
             mapView.removeAnnotations(mapView.annotations)
+            mapView.userTrackingMode = showsEndAnnotation ? .none : .follow
+            context.coordinator.shouldFollowUser = !showsEndAnnotation
 
-            guard let coords = routePoints?.map({ $0.coordinate }), !coords.isEmpty else {
+            let segments = routeSegments?.map { $0.map(\.coordinate) }.filter { !$0.isEmpty } ?? []
+            guard !segments.isEmpty else {
                 if let location = context.coordinator.lastKnownLocation {
                     mapView.setRegion(Self.regionForCoordinate(location.coordinate), animated: false)
                 } else {
@@ -694,26 +860,34 @@ struct CalculatorView: View {
                 return
             }
 
-            let region = regionForCoordinates(coords)
+            let allCoords = segments.flatMap { $0 }
+            let region = regionForCoordinates(allCoords)
             mapView.setRegion(region, animated: false)
 
-            if coords.count > 1 {
-                let polyline = MKPolyline(coordinates: coords, count: coords.count)
-                mapView.addOverlay(polyline)
+            if allCoords.count > 1 {
+                for segment in segments {
+                    let polyline = MKPolyline(coordinates: segment, count: segment.count)
+                    mapView.addOverlay(polyline)
+                }
             }
 
-            if let first = coords.first {
-                let annotation = MKPointAnnotation()
-                annotation.coordinate = first
-                annotation.title = "Start"
-                mapView.addAnnotation(annotation)
-            }
+            let totalSegments = segments.count
+            let completedSegmentCount = showsEndAnnotation ? totalSegments : max(0, totalSegments - 1)
 
-            if let last = coords.last, regionContains(region, coordinate: last) {
-                let annotation = MKPointAnnotation()
-                annotation.coordinate = last
-                annotation.title = "End"
-                mapView.addAnnotation(annotation)
+            for (index, segment) in segments.enumerated() {
+                if let start = segment.first {
+                    let annotation = MKPointAnnotation()
+                    annotation.coordinate = start
+                    annotation.title = title(for: index, total: totalSegments, type: .start)
+                    mapView.addAnnotation(annotation)
+                }
+
+                if index < completedSegmentCount, let end = segment.last, regionContains(region, coordinate: end) {
+                    let annotation = MKPointAnnotation()
+                    annotation.coordinate = end
+                    annotation.title = title(for: index, total: totalSegments, type: .end)
+                    mapView.addAnnotation(annotation)
+                }
             }
         }
 
@@ -741,10 +915,21 @@ struct CalculatorView: View {
             return latInRange && lonInRange
         }
 
+        private enum AnnotationType { case start, end }
+
+        private func title(for index: Int, total: Int, type: AnnotationType) -> String {
+            if total == 1 {
+                return type == .start ? "Start" : "End"
+            }
+            let label = type == .start ? "Start" : "End"
+            return "\(label) - \(index + 1)"
+        }
+
         fileprivate class Coordinator: NSObject, MKMapViewDelegate, CLLocationManagerDelegate {
             private let locationManager = CLLocationManager()
             private weak var mapView: MKMapView?
             var lastKnownLocation: CLLocation?
+            var shouldFollowUser: Bool = false
 
             override init() {
                 super.init()
@@ -772,7 +957,8 @@ struct CalculatorView: View {
             func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
                 guard let location = locations.last else { return }
                 lastKnownLocation = location
-                guard mapView?.overlays.isEmpty ?? true else { return }
+                let shouldCenter = shouldFollowUser || (mapView?.overlays.isEmpty ?? true)
+                guard shouldCenter else { return }
                 mapView?.setRegion(WorkModeMapView.regionForCoordinate(location.coordinate), animated: true)
             }
 
@@ -811,6 +997,7 @@ struct CalculatorView: View {
 
     private func liveMileageExpense(for block: Block) -> Decimal {
         let rate = mileageRate(for: block)
+        guard block.shouldIncludeMileageDeduction else { return 0 }
         let miles = liveMiles(for: block)
         let usedMiles = roundedMilesDecimal(miles)
         return usedMiles * rate
@@ -818,7 +1005,7 @@ struct CalculatorView: View {
 
     private func liveProfit(for block: Block) -> Decimal {
         let gross = block.grossPayout
-        let expenses = block.additionalExpensesTotal
+        let expenses = block.shouldIncludeExpensesDeduction ? block.additionalExpensesTotal : 0
         let mileage = liveMileageExpense(for: block)
         return gross - expenses - mileage
     }
@@ -879,11 +1066,22 @@ struct CalculatorView: View {
         let block = Block(date: blockDate, durationMinutes: totalMinutes, grossBase: gross, irsRateSnapshot: rate, startTime: startDate, endTime: endDate)
         block.hasTips = hasTipsOnHome
         block.auditEntries.append(AuditEntry(action: AuditAction.created, note: "Block accepted from calculator"))
+        logBlockCreationFields(for: block, note: "Captured during calculator entry", currencyFormatter: currencyString)
         context.insert(block)
-        NotificationManager.shared.scheduleBlockReminders(for: block, includePreReminder: includePreReminderPreference)
+        let reminderConfig = NotificationManager.ReminderConfiguration(
+            startMinutes: reminderBeforeStartMinutes,
+            preEndMinutes: reminderBeforeEndMinutes,
+            tipHours: tipReminderHourCount,
+            startEnabled: startReminderEnabled,
+            preEndEnabled: preEndReminderEnabled,
+            endEnabled: endReminderEnabled,
+            tipEnabled: tipReminderEnabled,
+            hasTips: hasTipsOnHome
+        )
+        NotificationManager.shared.scheduleBlockReminders(for: block, config: reminderConfig)
         try? context.save()
         acceptedBlock = block
-        showAcceptedAlert = true
+        showAcceptedAlert = shouldShowAcceptedAlert(for: block)
         grossBaseText = ""
         selectedHours = 0
         selectedMinutes = 0
@@ -902,10 +1100,10 @@ struct CalculatorView: View {
         context.saveIfNeeded()
     }
 
-    private func complete(_ block: Block) {
+    private func complete(_ block: Block, note: String = "Marked completed from calculator") {
         guard block.status != .completed else { return }
         block.status = .completed
-        logStatusChange(for: block, note: "Marked completed from calculator")
+        logStatusChange(for: block, note: note)
         block.updatedAt = Date()
         context.saveIfNeeded()
     }
@@ -930,20 +1128,23 @@ struct CalculatorView: View {
     }
 
     private var upcomingBlocks: [Block] {
+        _ = currentTime
         let now = Date()
         let calendar = Calendar.current
-        let windowEnd = calendar.date(byAdding: .day, value: 3, to: now) ?? now
+        let windowEnd = calendar.date(byAdding: .day, value: 2, to: now) ?? now
         let activeIDs = Set(activeBlocks.map { $0.id })
         return blocks
             .filter { block in
+                guard block.status == .accepted else { return false }
                 let start = startDate(for: block)
                 guard start > now, start <= windowEnd else { return false }
                 return !activeIDs.contains(block.id)
             }
-            .sorted { startDate(for: $0) < startDate(for: $1) }
+        .sorted { startDate(for: $0) < startDate(for: $1) }
     }
 
     private var activeBlocks: [Block] {
+        _ = currentTime
         let now = Date()
         let window = now.addingTimeInterval(45 * 60)
         return blocks
@@ -957,17 +1158,36 @@ struct CalculatorView: View {
             .sorted { startDate(for: $0) < startDate(for: $1) }
     }
 
+    private func shouldShowAcceptedAlert(for block: Block) -> Bool {
+        let now = Date()
+        let start = startDate(for: block)
+        let end = endDate(for: block)
+        let activeWindow = now.addingTimeInterval(45 * 60)
+        if start <= activeWindow && end > now {
+            return false
+        }
+        let calendar = Calendar.current
+        let upcomingWindow = calendar.date(byAdding: .day, value: 2, to: now) ?? now
+        if start > now && start <= upcomingWindow {
+            return false
+        }
+        return true
+    }
+
+    private func alignScheduleDate(with date: Date) {
+        let previousStart = selectedStartTime
+        let previousEnd = selectedEndTime
+        selectedDate = date
+        selectedStartTime = combine(date: date, time: previousStart)
+        selectedEndTime = combine(date: date, time: previousEnd)
+    }
+
     private func startDate(for block: Block) -> Date {
-        block.startTime ?? block.date
+        block.scheduledStartDate
     }
 
     private func endDate(for block: Block) -> Date {
-        if let end = block.endTime {
-            return end
-        }
-        let start = startDate(for: block)
-        let duration = max(1, block.durationMinutes)
-        return start.addingTimeInterval(TimeInterval(duration * 60))
+        block.scheduledEndDate
     }
 
     @Query(sort: [SortDescriptor(\Block.date)]) private var blocks: [Block]

@@ -1,29 +1,21 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
-import UIKit
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Query private var settings: [AppSettings]
-    @Query private var blocks: [Block]
-
     @State private var irsRateText: String = ""
     @State private var selectedAppearance: AppearancePreference = .system
-    @State private var shareableBackup: ShareableBackup?
-    @State private var showCSVExporter: Bool = false
-    @State private var csvDocument: CSVDocument = .empty
-    @State private var showImporter: Bool = false
-    @State private var showClearConfirmation: Bool = false
-    @State private var dataMessage: String?
-    @State private var dataMessageStyle: DataMessageStyle = .info
     @State private var mileageSavedMessage: String?
     @State private var showExpenseCategoryEditor: Bool = false
+    @State private var reminderBeforeStartMinutes: Int = 45
+    @State private var reminderBeforeEndMinutes: Int = 15
+    @State private var tipReminderHours: Int = 24
 
     var body: some View {
         NavigationStack {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
                         SectionCard(title: "Appearance") {
@@ -51,6 +43,33 @@ struct SettingsView: View {
                             }
                         }
 
+                        SectionCard(title: "Reminders") {
+                            VStack(alignment: .leading, spacing: 14) {
+                                reminderField(
+                                    label: "Prior to Block Start",
+                                    value: $reminderBeforeStartMinutes,
+                                    placeholder: "45",
+                                    unit: "minutes",
+                                    onChange: updateReminderBeforeStart
+                                )
+                                reminderField(
+                                    label: "Prior to Block End",
+                                    value: $reminderBeforeEndMinutes,
+                                    placeholder: "15",
+                                    unit: "minutes",
+                                    onChange: updateReminderBeforeEnd
+                                )
+                                reminderField(
+                                    label: "Tip reminder",
+                                    value: $tipReminderHours,
+                                    placeholder: "24",
+                                    unit: tipReminderHours == 1 ? "hour" : "hours",
+                                    onChange: updateTipReminderHours
+                                )
+                            }
+                            .keyboardDoneToolbar()
+                        }
+
                         SectionCard(title: "Mileage deduction rate (cents)") {
                             TextField("IRS mileage rate (cents per mile)", text: $irsRateText)
                                 .keyboardType(.numberPad)
@@ -68,7 +87,52 @@ struct SettingsView: View {
                                 }
                             }
 
-                        dataCard
+                        SectionCard(title: "About BlockErrn") {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("A pocket-friendly ride-by-ride calculator with configurable themes, expense categories, and protected backups.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                NavigationLink {
+                                    LicensesView()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "doc.text")
+                                        Text("Licenses")
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .fill(Color(.secondarySystemBackground))
+                                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        SectionCard {
+                            NavigationLink {
+                                EraseDataView()
+                            } label: {
+                                HStack {
+                                    Text("Erase All Content and Settings")
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                     }
                     .padding()
                     .padding(.bottom, 32)
@@ -78,9 +142,6 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Save") { save() } }
             }
-            .sheet(item: $shareableBackup) { backup in
-                ActivityView(activityItems: [backup.url])
-            }
             .sheet(isPresented: $showExpenseCategoryEditor) {
                 if let appSettings = settings.first {
                     ExpenseCategoryEditor(appSettings: appSettings)
@@ -88,91 +149,12 @@ struct SettingsView: View {
                     Text("No settings available.")
                 }
             }
-            .fileImporter(
-                isPresented: $showImporter,
-                allowedContentTypes: [.json],
-                allowsMultipleSelection: false
-            ) { result in
-                handleImport(result)
-            }
-            .fileExporter(
-                isPresented: $showCSVExporter,
-                document: csvDocument,
-                contentType: .commaSeparatedText,
-                defaultFilename: defaultCSVFilename()
-            ) { result in
-                switch result {
-                case .success(let url):
-                    setDataMessage("CSV ready: \(url.lastPathComponent)", style: .success)
-                case .failure(let error):
-                    setDataMessage("CSV failed: \(error.localizedDescription)", style: .error)
-                }
-            }
-            .alert("Delete all saved data?", isPresented: $showClearConfirmation) {
-                Button("Delete Everything", role: .destructive) { clearAllData() }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("This removes every block, expense, and custom setting. The action cannot be undone.")
-            }
             .onAppear { loadSettings() }
             .task(id: settings.first?.id) { loadSettings() }
             .onChange(of: settings.first?.preferredAppearanceRaw) { _ in loadSettings() }
         }
     }
 
-    private var dataCard: some View {
-        SectionCard(title: "Data") {
-            Button {
-                do {
-                    let url = try createBackupFile()
-                    shareableBackup = ShareableBackup(url: url)
-                    setDataMessage("Backup ready", style: .success)
-                } catch {
-                    setDataMessage("Backup failed: \(error.localizedDescription)", style: .error)
-                }
-            } label: {
-                Label("Backup FlexErrn Data", systemImage: "square.and.arrow.up")
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.accentColor)
-
-            Button {
-                showImporter = true
-            } label: {
-                Label("Import FlexErrn Backup", systemImage: "square.and.arrow.down")
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.accentColor)
-
-            Button {
-                csvDocument = CSVDocument(text: makeCSVText())
-                showCSVExporter = true
-            } label: {
-                Label("Export to CSV", systemImage: "square.and.arrow.up.on.square")
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.accentColor)
-
-            if let message = dataMessage {
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(dataMessageStyle.color)
-                    .multilineTextAlignment(.center)
-            }
-
-            Button(role: .destructive) {
-                showClearConfirmation = true
-            } label: {
-                Label("Clear All Data", systemImage: "trash")
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.red)
-        }
-    }
 
     private func save() {
         guard let cents = Int(irsRateText), cents >= 0 else { return }
@@ -200,108 +182,7 @@ struct SettingsView: View {
         try? context.save()
     }
 
-    private func handleImport(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let url = urls.first else { return }
-            do {
-                let shouldStop = url.startAccessingSecurityScopedResource()
-                defer {
-                    if shouldStop {
-                        url.stopAccessingSecurityScopedResource()
-                    }
-                }
-                let data = try Data(contentsOf: url)
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
-                let payload = try decoder.decode(BackupPayload.self, from: data)
-                try importBackup(payload)
-                loadSettings()
-                setDataMessage("Imported backup from \(url.lastPathComponent)", style: .success)
-            } catch {
-                setDataMessage("Import failed: \(error.localizedDescription)", style: .error)
-            }
-        case .failure(let error):
-            setDataMessage("Import cancelled: \(error.localizedDescription)", style: .info)
-        }
-    }
 
-    private func defaultBackupFilename() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "FlexEarningsBackup-\(formatter.string(from: Date())).json"
-    }
-
-    private func defaultCSVFilename() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "FlexErrnData-\(formatter.string(from: Date())).csv"
-    }
-
-    private func makeCSVText() -> String {
-        let header = [
-            "Block ID", "Date", "Start Time", "End Time", "Duration Minutes",
-            "Gross Base", "Has Tips", "Tips Amount", "Miles", "IRS Rate Snapshot",
-            "Status", "Notes", "Created At", "Updated At", "Expenses", "Audit Entries"
-        ]
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-
-        let rows = blocks.map { block -> String in
-            let values: [String] = [
-                block.id.uuidString,
-                isoString(for: block.date, formatter: formatter),
-                isoString(for: block.startTime ?? block.date, formatter: formatter),
-                isoString(for: block.endTime ?? block.date.addingTimeInterval(TimeInterval(max(1, block.durationMinutes) * 60)), formatter: formatter),
-                "\(block.durationMinutes)",
-                decimalString(block.grossBase),
-                block.hasTips ? "true" : "false",
-                decimalString(block.tipsAmount ?? 0),
-                decimalString(block.miles),
-                decimalString(block.irsRateSnapshot),
-                block.statusRaw,
-                block.notes ?? "",
-                isoString(for: block.createdAt, formatter: formatter),
-                isoString(for: block.updatedAt, formatter: formatter),
-                jsonString(block.expenses.map { ExpenseCSV(categoryRaw: $0.categoryRaw, amount: $0.amount, note: $0.note, createdAt: $0.createdAt) }),
-                jsonString(block.auditEntries.map { AuditCSV(timestamp: $0.timestamp, actionRaw: $0.actionRaw, field: $0.field, oldValue: $0.oldValue, newValue: $0.newValue, note: $0.note) })
-            ]
-            return values.map(csvEscaped).joined(separator: ",")
-        }
-
-        let combined = ([header.map(csvEscaped).joined(separator: ",")] + rows).joined(separator: "\n")
-        return combined
-    }
-
-    private func isoString(for date: Date?, formatter: DateFormatter) -> String {
-        guard let date = date else { return "" }
-        return formatter.string(from: date)
-    }
-
-    private func decimalString(_ value: Decimal) -> String {
-        NSDecimalNumber(decimal: value).stringValue
-    }
-
-    private func csvEscaped(_ value: String) -> String {
-        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
-        return "\"\(escaped)\""
-    }
-
-    private func jsonString<T: Encodable>(_ value: T) -> String {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(value),
-              let string = String(data: data, encoding: .utf8) else {
-            return ""
-        }
-        return string
-    }
-
-    private func setDataMessage(_ text: String, style: DataMessageStyle) {
-        dataMessage = text
-        dataMessageStyle = style
-    }
 
     private func formatCents(_ value: Decimal) -> String {
         let cents = NSDecimalNumber(decimal: value * Decimal(100)).intValue
@@ -316,157 +197,150 @@ struct SettingsView: View {
         let rate = settings.first?.irsMileageRate ?? 0.70
         irsRateText = formatCents(rate)
         selectedAppearance = settings.first?.preferredAppearance ?? .system
+        reminderBeforeStartMinutes = settings.first?.reminderBeforeStartMinutes ?? 45
+        reminderBeforeEndMinutes = settings.first?.reminderBeforeEndMinutes ?? 15
+        tipReminderHours = settings.first?.tipReminderHours ?? 24
     }
 
-    private func clearAllData() {
-        for block in blocks {
-            context.delete(block)
+    private func reminderField(
+        label: String,
+        value: Binding<Int>,
+        placeholder: String,
+        unit: String,
+        onChange: @escaping (Int) -> Void
+    ) -> some View {
+        return HStack(alignment: .center, spacing: 12) {
+            Text(label)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.primary)
+                .frame(width: reminderLabelWidth, alignment: .leading)
+            HStack(spacing: 4) {
+                TextField(placeholder, value: value, formatter: integerFormatter)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .fixedSize()
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(.white.opacity(0.15))
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                    )
+                    .frame(width: 90)
+                    .onChange(of: value.wrappedValue, perform: onChange)
+                Text(unit)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .fixedSize()
         }
-        for setting in settings {
-            context.delete(setting)
-        }
+    }
+
+    private var reminderLabelWidth: CGFloat {
+        180
+    }
+
+    private var integerFormatter: NumberFormatter {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .none
+        formatter.minimum = 0
+        return formatter
+    }
+
+    private func updateReminderBeforeStart(_ minutes: Int) {
+        guard let s = settings.first else { return }
+        s.reminderBeforeStartMinutes = minutes
         try? context.save()
-        setDataMessage("All data removed. Blocks and settings cleared.", style: .info)
     }
 
-    private func makeBackupPayload() -> BackupPayload {
-        let blockPayloads = blocks.map { block in
-            BlockPayload(
-                id: block.id,
-                date: block.date,
-                durationMinutes: block.durationMinutes,
-                grossBase: block.grossBase,
-                hasTips: block.hasTips,
-                tipsAmount: block.tipsAmount,
-                miles: block.miles,
-                irsRateSnapshot: block.irsRateSnapshot,
-                statusRaw: block.statusRaw,
-                notes: block.notes,
-                createdAt: block.createdAt,
-                updatedAt: block.updatedAt,
-                expenses: block.expenses.map { expense in
-                    ExpensePayload(
-                        id: expense.id,
-                        categoryRaw: expense.categoryRaw,
-                        amount: expense.amount,
-                        note: expense.note,
-                        createdAt: expense.createdAt
-                    )
-                },
-                auditEntries: block.auditEntries.map { audit in
-                    AuditEntryPayload(
-                        id: audit.id,
-                        timestamp: audit.timestamp,
-                        action: audit.actionRaw,
-                        field: audit.field,
-                        oldValue: audit.oldValue,
-                        newValue: audit.newValue,
-                        note: audit.note
-                    )
+    private func updateReminderBeforeEnd(_ minutes: Int) {
+        guard let s = settings.first else { return }
+        s.reminderBeforeEndMinutes = minutes
+        try? context.save()
+    }
+
+    private func updateTipReminderHours(_ hours: Int) {
+        guard let s = settings.first else { return }
+        s.tipReminderHours = hours
+        try? context.save()
+    }
+
+}
+
+private struct LicensesView: View {
+    private let licenseEntries: [LicenseEntry] = [
+        LicenseEntry(
+            title: "ZIPFoundation",
+            subtitle: "MIT License",
+            licenseText:
+                """
+                Copyright (c) 2017-2025 Thomas Zoechling (https://www.peakstep.com)
+
+                Permission is hereby granted, free of charge, to any person obtaining a copy
+                of this software and associated documentation files (the \"Software\"), to deal
+                in the Software without restriction, including without limitation the rights
+                to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                copies of the Software, and to permit persons to whom the Software is
+                furnished to do so, subject to the following conditions:
+
+                The above copyright notice and this permission notice shall be included in all
+                copies or substantial portions of the Software.
+
+                THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+                FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+                AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+                LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+                OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+                SOFTWARE.
+                """
+        )
+    ]
+
+    var body: some View {
+        ZStack {
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    ForEach(licenseEntries) { entry in
+                        SectionCard(title: entry.title) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(entry.subtitle)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Text(entry.licenseText)
+                                    .font(.footnote)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
                 }
-            )
-        }
-
-        let settingsPayloads = settings.map { setting in
-            AppSettingsPayload(
-                id: setting.id,
-                irsMileageRate: setting.irsMileageRate,
-                currencyCode: setting.currencyCode,
-                roundingScale: setting.roundingScale,
-                preferredAppearanceRaw: setting.preferredAppearanceRaw,
-                includePreReminder: setting.includePreReminder,
-                expenseCategoryDescriptors: setting.expenseCategoryDescriptors
-            )
-        }
-
-        return BackupPayload(blocks: blockPayloads, settings: settingsPayloads)
-    }
-
-    private func createBackupFile() throws -> URL {
-        let payload = makeBackupPayload()
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(payload)
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(defaultBackupFilename())
-        try data.write(to: url, options: .atomic)
-        return url
-    }
-
-    private func importBackup(_ payload: BackupPayload) throws {
-        for blockPayload in payload.blocks {
-            let block = Block(
-                id: blockPayload.id,
-                date: blockPayload.date,
-                durationMinutes: blockPayload.durationMinutes,
-                grossBase: blockPayload.grossBase,
-                hasTips: blockPayload.hasTips,
-                tipsAmount: blockPayload.tipsAmount,
-                miles: blockPayload.miles,
-                irsRateSnapshot: blockPayload.irsRateSnapshot,
-                status: BlockStatus(rawValue: blockPayload.statusRaw) ?? .accepted,
-                expenses: [],
-                auditEntries: [],
-                notes: blockPayload.notes,
-                createdAt: blockPayload.createdAt,
-                updatedAt: blockPayload.updatedAt
-            )
-
-            for expensePayload in blockPayload.expenses {
-                let category = ExpenseCategory(rawValue: expensePayload.categoryRaw) ?? .drinks
-                let expense = Expense(
-                    id: expensePayload.id,
-                    category: category,
-                    amount: expensePayload.amount,
-                    note: expensePayload.note,
-                    createdAt: expensePayload.createdAt
-                )
-                block.expenses.append(expense)
+                .padding()
+                .padding(.bottom, 32)
             }
-
-            for auditPayload in blockPayload.auditEntries {
-                let action = AuditAction(rawValue: auditPayload.action) ?? .updated
-                let entry = AuditEntry(
-                    id: auditPayload.id,
-                    timestamp: auditPayload.timestamp,
-                    action: action,
-                    field: auditPayload.field,
-                    oldValue: auditPayload.oldValue,
-                    newValue: auditPayload.newValue,
-                    note: auditPayload.note
-                )
-                block.auditEntries.append(entry)
-            }
-
-            context.insert(block)
         }
-
-        for setting in settings {
-            context.delete(setting)
-        }
-
-        for settingPayload in payload.settings {
-            let setting = AppSettings(
-                id: settingPayload.id,
-                irsMileageRate: settingPayload.irsMileageRate,
-                currencyCode: settingPayload.currencyCode,
-                roundingScale: settingPayload.roundingScale,
-                includePreReminder: settingPayload.includePreReminder ?? true,
-                expenseCategories: settingPayload.expenseCategoryDescriptors
-            )
-            setting.preferredAppearanceRaw = settingPayload.preferredAppearanceRaw
-            context.insert(setting)
-        }
-
-        try context.save()
+        .navigationTitle("Licenses")
     }
 }
 
-private struct SectionCard<Content: View>: View {
+private struct LicenseEntry: Identifiable {
+    let id = UUID()
     let title: String
+    let subtitle: String
+    let licenseText: String
+}
+
+private struct SectionCard<Content: View>: View {
+    let title: String?
     let background: AnyShapeStyle
     let content: Content
 
-    init(title: String, background: AnyShapeStyle = AnyShapeStyle(.ultraThinMaterial), @ViewBuilder content: () -> Content) {
+    init(title: String? = nil, background: AnyShapeStyle = AnyShapeStyle(.ultraThinMaterial), @ViewBuilder content: () -> Content) {
         self.title = title
         self.background = background
         self.content = content()
@@ -474,14 +348,16 @@ private struct SectionCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
+            if let title, !title.isEmpty {
+                Text(title)
+                    .font(.headline)
+            }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(background, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: FlexErrnTheme.cardShadowColor, radius: 20, x: 0, y: 10)
+        .shadow(color: BlockErrnTheme.cardShadowColor, radius: 20, x: 0, y: 10)
     }
 }
 
@@ -498,7 +374,7 @@ private struct ExpenseCategoryEditor: View {
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             VStack(spacing: 20) {
                 header
                 addRow
@@ -594,154 +470,4 @@ private struct ExpenseCategoryEditor: View {
         appSettings.expenseCategoryDescriptors = descriptors
         dismiss()
     }
-}
-
-private struct ShareableBackup: Identifiable {
-    let id = UUID()
-    let url: URL
-}
-
-private struct ActivityView: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-
-private enum DataMessageStyle {
-    case info
-    case success
-    case error
-
-    var color: Color {
-        switch self {
-        case .info: return .secondary
-        case .success: return .green
-        case .error: return .red
-        }
-    }
-}
-
-private struct BackupDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.json] }
-    var payload: BackupPayload
-
-    init(payload: BackupPayload) {
-        self.payload = payload
-    }
-
-    init(configuration: ReadConfiguration) throws {
-        guard let contents = configuration.file.regularFileContents else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        payload = try JSONDecoder().decode(BackupPayload.self, from: contents)
-    }
-
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = try JSONEncoder().encode(payload)
-        return FileWrapper(regularFileWithContents: data)
-    }
-
-    static var empty: BackupDocument {
-        BackupDocument(payload: .empty)
-    }
-}
-
-private struct BackupPayload: Codable {
-    let blocks: [BlockPayload]
-    let settings: [AppSettingsPayload]
-
-    static var empty: BackupPayload {
-        BackupPayload(blocks: [], settings: [])
-    }
-}
-
-private struct BlockPayload: Codable {
-    let id: UUID
-    let date: Date
-    let durationMinutes: Int
-    let grossBase: Decimal
-    let hasTips: Bool
-    let tipsAmount: Decimal?
-    let miles: Decimal
-    let irsRateSnapshot: Decimal
-    let statusRaw: String
-    let notes: String?
-    let createdAt: Date
-    let updatedAt: Date
-    let expenses: [ExpensePayload]
-    let auditEntries: [AuditEntryPayload]
-}
-
-private struct ExpensePayload: Codable {
-    let id: UUID
-    let categoryRaw: String
-    let amount: Decimal
-    let note: String?
-    let createdAt: Date
-}
-
-private struct AuditEntryPayload: Codable {
-    let id: UUID
-    let timestamp: Date
-    let action: String
-    let field: String?
-    let oldValue: String?
-    let newValue: String?
-    let note: String?
-}
-
-private struct AppSettingsPayload: Codable {
-    let id: UUID
-    let irsMileageRate: Decimal
-    let currencyCode: String
-    let roundingScale: Int
-    let preferredAppearanceRaw: String?
-    let includePreReminder: Bool?
-    let expenseCategoryDescriptors: [ExpenseCategoryDescriptor]?
-}
-
-private struct CSVDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
-    var text: String
-
-    init(text: String) {
-        self.text = text
-    }
-
-    init(configuration: ReadConfiguration) throws {
-        guard let contents = configuration.file.regularFileContents,
-              let string = String(data: contents, encoding: .utf8) else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        text = string
-    }
-
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = text.data(using: .utf8) ?? Data()
-        return FileWrapper(regularFileWithContents: data)
-    }
-
-    static var empty: CSVDocument {
-        CSVDocument(text: "")
-    }
-}
-
-private struct ExpenseCSV: Encodable {
-    let categoryRaw: String
-    let amount: Decimal
-    let note: String?
-    let createdAt: Date
-}
-
-private struct AuditCSV: Encodable {
-    let timestamp: Date
-    let actionRaw: String
-    let field: String?
-    let oldValue: String?
-    let newValue: String?
-    let note: String?
 }

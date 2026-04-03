@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import CoreLocation
 import MapKit
+import UIKit
 
 struct BlockDetailView: View {
     @Environment(\.modelContext) private var context
@@ -13,13 +14,16 @@ struct BlockDetailView: View {
     @State private var showAddExpense = false
     @State private var showStartConfirmation = false
     @State private var showCompletionPrompt = false
+    @State private var showAuditLog = false
+    @State private var showDeleteConfirmation = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
     private var showLegacyTrackingControls: Bool { false }
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
                     overviewCard
@@ -27,6 +31,7 @@ struct BlockDetailView: View {
                     scheduleCard
                     routeCard
                     mileageCard
+                    deliveryCard
                     expensesCard
                     totalsCard
                 }
@@ -39,15 +44,27 @@ struct BlockDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                    Button("Mark Completed") { block.status = .completed; log(AuditAction.statusChanged) }
-                    Button("Mark Cancelled") { block.status = .cancelled; log(AuditAction.statusChanged) }
-                    Button("Mark No-Show") { block.status = .noShow; log(AuditAction.statusChanged) }
+                    Button("Audit Log") {
+                        showAuditLog = true
+                    }
+                    Button("Delete Block", role: .destructive) {
+                        showDeleteConfirmation = true
+                    }
                 } label: {
-                    Label("Status", systemImage: "checkmark.circle")
-                        .foregroundColor(buttonTextColor)
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
                 }
             }
         }
+        .background(
+            NavigationLink(
+                destination: AuditLogView(entries: auditEntriesSorted),
+                isActive: $showAuditLog
+            ) {
+                EmptyView()
+            }
+            .hidden()
+        )
         .sheet(isPresented: $showAddExpense) {
             AddExpenseSheet(block: $block)
         }
@@ -68,13 +85,29 @@ struct BlockDetailView: View {
         } message: {
             Text("Tracking stopped. Would you like to mark this block as completed?")
         }
+        .alert("Delete this block?", isPresented: $showDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                deleteBlock()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently remove the block and all associated data. This cannot be undone.")
+        }
     }
 
     private var overviewCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Overview")
                 .font(.headline)
-            DatePicker("Date", selection: Binding(get: { block.date }, set: { block.date = $0; touch() }), displayedComponents: .date)
+            DatePicker(
+                "Date",
+                selection: auditedBinding(
+                    \.date,
+                    field: "date",
+                    formatter: { Self.blockTimestampFormatter.string(from: $0) }
+                ),
+                displayedComponents: .date
+            )
                 .datePickerStyle(.compact)
             HStack {
                 Text("Duration")
@@ -93,19 +126,86 @@ struct BlockDetailView: View {
                 .pickerStyle(.menu)
                 .tint(buttonTextColor)
             }
-            LiquidNotesField(placeholder: "Notes", text: Binding(get: { block.notes ?? "" }, set: { block.notes = $0; touch() }))
+            LiquidNotesField(placeholder: "Notes", text: Binding(
+                get: { block.notes ?? "" },
+                set: { newValue in
+                    let oldValue = block.notes ?? ""
+                    let normalizedNew = newValue.isEmpty ? nil : newValue
+                    if (block.notes ?? "") == newValue {
+                        block.notes = normalizedNew
+                        return
+                    }
+                    block.notes = normalizedNew
+                    log(
+                        .updated,
+                        field: "notes",
+                        oldValue: oldValue.isEmpty ? nil : oldValue,
+                        newValue: normalizedNew,
+                        note: "Modified by user"
+                    )
+                    touch()
+                }
+            ))
+            timestampRow
         }
         .flexErrnCardStyle()
+    }
+
+    private var timestampRow: some View {
+        VStack(spacing: 4) {
+            HStack {
+                Spacer()
+                Text("Created at \(Self.blockTimestampFormatter.string(from: block.createdAt))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Spacer()
+                Text("Last Modified at \(Self.blockTimestampFormatter.string(from: block.updatedAt))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var payoutCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Payout")
                 .font(.headline)
-            DecimalField("Base Pay", prefix: "$", value: Binding(get: { block.grossBase }, set: { block.grossBase = $0; touch() }))
-            Toggle("Has tips", isOn: Binding(get: { block.hasTips }, set: { block.hasTips = $0; touch() }))
+            DecimalField(
+                "Base Pay",
+                prefix: "$",
+                value: auditedBinding(\.grossBase, field: "grossBase", formatter: formatCurrency)
+            )
+            Toggle("Has tips", isOn: Binding(get: { block.hasTips }, set: { newValue in
+                let oldValue = block.hasTips
+                guard oldValue != newValue else {
+                    block.hasTips = newValue
+                    return
+                }
+                block.hasTips = newValue
+                log(
+                    .updated,
+                    field: "hasTips",
+                    oldValue: oldValue ? "true" : "false",
+                    newValue: newValue ? "true" : "false",
+                    note: "Modified by user"
+                )
+                touch()
+            }))
             if block.hasTips {
-                    OptionalDecimalField(title: "Tips", prefix: "$", value: Binding(get: { block.tipsAmount }, set: { block.tipsAmount = $0; touch(); log(AuditAction.tipsUpdated) }))
+                OptionalDecimalField(
+                    title: "Tips",
+                    prefix: "$",
+                value: auditedBinding(
+                    \.tipsAmount,
+                    field: "tipsAmount",
+                    formatter: { optional in
+                        guard let amount = optional else { return "—" }
+                        return formatCurrency(amount)
+                    }
+                )
+                )
                 if block.tipsAmount == nil {
                     Text("Enter the tip amount once it posts (typically 24 hours after the block).")
                         .font(.caption)
@@ -132,28 +232,71 @@ struct BlockDetailView: View {
                 .font(.headline)
             DatePicker("Start time", selection: Binding(get: { block.startTime ?? block.date }, set: { startTimeChanged(to: $0) }), displayedComponents: .hourAndMinute)
             DatePicker("End time", selection: Binding(get: { block.endTime ?? block.date }, set: { endTimeChanged(to: $0) }), displayedComponents: .hourAndMinute)
+            scheduleRow("User Start Time", block.userStartTime)
+            scheduleRow("User Completion Time", block.userCompletionTime)
         }
         .flexErrnCardStyle()
     }
 
+    private func scheduleRow(_ title: String, _ date: Date?) -> some View {
+        HStack {
+            Text(title)
+                .font(.subheadline)
+            Spacer()
+            Text(date.map { Self.scheduleTimeFormatter.string(from: $0) } ?? "Not recorded")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+        }
+    }
+
+    private static let scheduleTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private func formattedScheduleTime(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        return Self.scheduleTimeFormatter.string(from: date)
+    }
+
     @ViewBuilder
     private var routeCard: some View {
-        if let routePoints = block.routePoints, !routePoints.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Route")
-                    .font(.headline)
-                RouteMapView(routePoints: routePoints)
-                    .frame(height: 200)
+            if let segments = block.routeSegments, !segments.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Route")
+                        .font(.headline)
+                    RouteMapView(routeSegments: segments)
+                        .frame(height: 200)
+                }
+                .flexErrnCardStyle()
             }
-            .flexErrnCardStyle()
-        }
     }
 
     private var mileageCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Mileage")
                 .font(.headline)
-            MilesField("Miles", value: Binding(get: { block.miles }, set: { block.miles = $0; touch(); log(AuditAction.milesUpdated) }), displayValue: block.roundedMiles)
+            MilesField("Miles", value: Binding(
+                get: { block.miles },
+                set: { newValue in
+                    let oldValue = block.miles
+                    guard oldValue != newValue else {
+                        block.miles = newValue
+                        return
+                    }
+                    block.miles = newValue
+                    log(
+                        .milesUpdated,
+                        field: "miles",
+                        oldValue: auditDecimalString(oldValue),
+                        newValue: auditDecimalString(newValue),
+                        note: "Modified by user"
+                    )
+                    touch()
+                }
+            ), displayValue: block.roundedMiles)
             HStack {
                 Text("Rate snapshot")
                 Spacer()
@@ -165,6 +308,26 @@ struct BlockDetailView: View {
                 Spacer()
                 Text(formatCurrency(block.mileageDeduction))
             }
+            Toggle(isOn: Binding(
+                get: { block.shouldExcludeMileageDeduction },
+                set: { newValue in
+                    let oldValue = block.shouldExcludeMileageDeduction
+                    DeductionPreferenceStore.shared.setExclude(newValue, type: .mileage, blockID: block.id)
+                    log(
+                        AuditAction.milesUpdated,
+                        field: "excludeMileageDeduction",
+                        oldValue: oldValue ? "true" : "false",
+                        newValue: newValue ? "true" : "false",
+                        note: "Modified by user"
+                    )
+                    touch()
+                }
+            )) {
+                Text("Exclude Mileage Deduction from Profit Calculation")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .toggleStyle(.switch)
             if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
                 Text("Tracking: \(String(format: "%.2f", mileageTracker.currentMiles)) mi")
                     .font(.caption2)
@@ -189,12 +352,7 @@ struct BlockDetailView: View {
                     Button {
                         if let (sessionMiles, routePoints) = mileageTracker.stopTracking(for: block.id) {
                             block.miles += Decimal(sessionMiles)
-                            if var existingPoints = block.routePoints {
-                                existingPoints.append(contentsOf: routePoints)
-                                block.routePoints = existingPoints
-                            } else {
-                                block.routePoints = routePoints
-                            }
+                            block.appendRouteSegment(routePoints)
                             touch()
                             promptCompletion()
                         }
@@ -206,6 +364,30 @@ struct BlockDetailView: View {
                     .disabled(!(mileageTracker.isTracking && mileageTracker.currentBlockID == block.id))
                 }
             }
+        }
+        .flexErrnCardStyle()
+    }
+
+    private var deliveryCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Delivery")
+                .font(.headline)
+            OptionalIntField(
+                title: "Packages",
+                value: auditedBinding(
+                    \.packageCount,
+                    field: "packageCount",
+                    formatter: { $0.map(String.init) ?? "—" }
+                )
+            )
+            OptionalIntField(
+                title: "Stops",
+                value: auditedBinding(
+                    \.stopCount,
+                    field: "stopCount",
+                    formatter: { $0.map(String.init) ?? "—" }
+                )
+            )
         }
         .flexErrnCardStyle()
     }
@@ -230,31 +412,83 @@ struct BlockDetailView: View {
                 Text("No expenses yet")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(block.expenses, id: \.id) { e in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(categoryName(for: e.categoryRaw))
-                            if let note = e.note, !note.isEmpty {
-                                Text(note).font(.caption).foregroundStyle(.secondary)
+                VStack(spacing: 12) {
+                    ForEach($block.expenses, id: \.id) { $expense in
+                        NavigationLink {
+                            ExpenseDetailView(expense: $expense, categoryDescriptors: categoryDescriptors)
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(categoryName(for: expense.categoryRaw))
+                                        .font(.headline)
+                                    if let note = expense.note, !note.isEmpty {
+                                        Text(note)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                    }
+                                }
+                                Spacer()
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    Text(formatCurrency(expense.amount))
+                                        .font(.headline)
+                                    if ExpenseCategory(rawValue: expense.categoryRaw)?.excludedFromTotals == true {
+                                        Text("Excluded")
+                                            .font(.caption2)
+                                            .padding(4)
+                                            .background(Color.gray.opacity(0.2))
+                                            .cornerRadius(4)
+                                    }
+                                    Text("Created at \(BlockDetailView.expenseTimestampFormatter.string(from: expense.createdAt))")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    if let updated = expense.updatedAt, updated > expense.createdAt {
+                                        Text("Updated at \(BlockDetailView.expenseTimestampFormatter.string(from: updated))")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    if DeductionPreferenceStore.shared.isExpenseExcluded(expense.id) {
+                                        Text("Excluded from profit")
+                                            .font(.caption2)
+                                            .italic()
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(colorScheme == .light ? .black : .secondary)
                             }
+                            .contentShape(Rectangle())
+                            .padding()
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
-                        Spacer()
-                        Text(formatCurrency(e.amount))
-                        if ExpenseCategory(rawValue: e.categoryRaw)?.excludedFromTotals == true {
-                            Text("Excluded").font(.caption2).padding(4).background(Color.gray.opacity(0.2)).cornerRadius(4)
+                        .buttonStyle(.plain)
+                        .swipeActions {
+                            Button(role: .destructive) {
+                                if let idx = block.expenses.firstIndex(where: { $0.id == expense.id }) {
+                                    let removed = block.expenses.remove(at: idx)
+                                    ReceiptStorage.delete(named: removed.receiptFileName)
+                                    log(AuditAction.expenseRemoved, field: "expense", oldValue: removed.categoryRaw, newValue: nil)
+                                    touch()
+                                }
+                            } label: { Label("Delete", systemImage: "trash") }
                         }
-                    }
-                    .swipeActions {
-                        Button(role: .destructive) {
-                            if let idx = block.expenses.firstIndex(where: { $0.id == e.id }) {
-                                let removed = block.expenses.remove(at: idx)
-                                log(AuditAction.expenseRemoved, field: "expense", oldValue: removed.categoryRaw, newValue: nil)
-                                touch()
-                            }
-                        } label: { Label("Delete", systemImage: "trash") }
                     }
                 }
             }
+            Toggle(isOn: Binding(
+                get: { block.shouldExcludeExpensesDeduction },
+                set: { newValue in
+                    let oldValue = block.shouldExcludeExpensesDeduction
+                    DeductionPreferenceStore.shared.setExclude(newValue, type: .expenses, blockID: block.id)
+                    log(AuditAction.expenseAdded, field: "excludeExpenseDeduction", oldValue: oldValue ? "true" : "false", newValue: newValue ? "true" : "false")
+                    touch()
+                }
+            )) {
+                Text("Exclude All Expenses from Profit Calculation")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .toggleStyle(.switch)
         }
         .frame(maxWidth: .infinity)
         .flexErrnCardStyle()
@@ -264,12 +498,50 @@ struct BlockDetailView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Totals")
                 .font(.headline)
-            HStack { Text("Additional expenses"); Spacer(); Text(formatCurrency(block.additionalExpensesTotal)) }
-            HStack { Text("Mileage deduction"); Spacer(); Text(formatCurrency(block.mileageDeduction)) }
-            HStack { Text("Total profit"); Spacer(); Text(formatCurrency(block.totalProfit)) }
+            totalsRow(
+                title: "Additional Expenses",
+                subtitle: additionalExpensesSubtitle,
+                value: block.additionalExpensesTotal,
+                active: block.shouldIncludeExpensesDeduction
+            )
+            totalsRow(title: "Mileage deduction", subtitle: nil, value: block.mileageDeduction, active: block.shouldIncludeMileageDeduction)
+            totalsRow(title: "Total profit", subtitle: nil, value: block.totalProfit, active: true)
             HStack { Text("Total Profit $/hr"); Spacer(); Text(formatCurrency(profitPerHour())) }
         }
         .flexErrnCardStyle()
+    }
+
+    private func totalsRow(title: String, subtitle: Text?, value: Decimal, active: Bool) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 2) {
+                styledLabel(Text(title), active: active)
+                if let subtitle = subtitle {
+                    subtitle
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            styledLabel(Text(formatCurrency(value)), active: active)
+        }
+    }
+
+    private func styledLabel(_ text: Text, active: Bool) -> Text {
+        var styled = text
+            .foregroundStyle(active ? .primary : .secondary)
+        if !active {
+            styled = styled
+                .strikethrough(true, color: .secondary)
+                .italic()
+        }
+        return styled
+    }
+
+    private var additionalExpensesSubtitle: Text? {
+        guard block.hasIndividuallyExcludedExpenses else { return nil }
+        return Text("Individual Expenses Excluded")
+            .italic()
+            .foregroundStyle(.secondary)
     }
 
     private var buttonTextColor: Color {
@@ -280,9 +552,21 @@ struct BlockDetailView: View {
         settings.first?.expenseCategoryDescriptors ?? ExpenseCategoryDescriptor.defaultList
     }
 
+    private static let blockTimestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM d, yyyy 'at' h:mm a"
+        return formatter
+    }()
+
     private func categoryName(for raw: String) -> String {
         categoryDescriptors.first(where: { $0.id == raw })?.name ?? raw.capitalized
     }
+
+    fileprivate static let expenseTimestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM d, yyyy 'at' h:mm a"
+        return formatter
+    }()
 
     private var isTrackingActive: Bool {
         mileageTracker.isTracking && mileageTracker.currentBlockID == block.id
@@ -319,10 +603,21 @@ struct BlockDetailView: View {
         touch()
     }
 
-    private func log(_ action: AuditAction, field: String? = nil, oldValue: String? = nil, newValue: String? = nil) {
+    private func deleteBlock() {
+        context.delete(block)
+        try? context.save()
+        dismiss()
+    }
+
+    private func log(_ action: AuditAction, field: String? = nil, oldValue: String? = nil, newValue: String? = nil, note: String? = nil) {
         let entry = AuditEntry(action: action, field: field, oldValue: oldValue, newValue: newValue)
+        entry.note = note
         block.auditEntries.append(entry)
         try? context.save()
+    }
+
+    private var auditEntriesSorted: [AuditEntry] {
+        block.auditEntries.sorted { $0.timestamp > $1.timestamp }
     }
 
     private func formatCurrency(_ value: Decimal) -> String {
@@ -348,19 +643,97 @@ struct BlockDetailView: View {
         return block.totalProfit / hours
     }
 
+    private func auditedBinding<T: Equatable>(
+        _ keyPath: ReferenceWritableKeyPath<Block, T>,
+        field: String,
+        note: String = "Modified by user",
+        formatter: ((T) -> String)? = nil
+    ) -> Binding<T> {
+        Binding(
+            get: { block[keyPath: keyPath] },
+            set: { newValue in
+                let oldValue = block[keyPath: keyPath]
+                guard oldValue != newValue else {
+                    block[keyPath: keyPath] = newValue
+                    return
+                }
+                block[keyPath: keyPath] = newValue
+                log(
+                    .updated,
+                    field: field,
+                    oldValue: formattedAuditValue(oldValue, using: formatter),
+                    newValue: formattedAuditValue(newValue, using: formatter),
+                    note: note
+                )
+                touch()
+            }
+        )
+    }
+
+    private func formattedAuditValue<T>(_ value: T, using formatter: ((T) -> String)?) -> String {
+        if let format = formatter {
+            return format(value)
+        }
+        let mirror = Mirror(reflecting: value)
+        if mirror.displayStyle == .optional {
+            if let first = mirror.children.first {
+                return "\(first.value)"
+            }
+            return "nil"
+        }
+        return "\(value)"
+    }
+
     private func startTimeChanged(to newStart: Date) {
+        let oldStart = block.startTime
         block.startTime = newStart
+        log(
+            .updated,
+            field: "startTime",
+            oldValue: formattedScheduleTime(oldStart),
+            newValue: formattedScheduleTime(newStart),
+            note: "Modified by user"
+        )
         let durationMinutes = max(1, block.durationMinutes)
-        block.endTime = newStart.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        let newEnd = newStart.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        let oldEnd = block.endTime
+        block.endTime = newEnd
+        if oldEnd != newEnd {
+            log(
+                .updated,
+                field: "endTime",
+                oldValue: formattedScheduleTime(oldEnd),
+                newValue: formattedScheduleTime(newEnd),
+                note: "Modified by user"
+            )
+        }
         block.durationMinutes = durationMinutes
         touch()
     }
 
     private func endTimeChanged(to newEnd: Date) {
+        let oldEnd = block.endTime
         block.endTime = newEnd
+        log(
+            .updated,
+            field: "endTime",
+            oldValue: formattedScheduleTime(oldEnd),
+            newValue: formattedScheduleTime(newEnd),
+            note: "Modified by user"
+        )
         let effectiveStart = block.startTime ?? block.date
         let intervalMinutes = Int(max(1, newEnd.timeIntervalSince(effectiveStart) / 60))
+        let oldDuration = block.durationMinutes
         block.durationMinutes = intervalMinutes
+        if oldDuration != intervalMinutes {
+            log(
+                .updated,
+                field: "durationMinutes",
+                oldValue: "\(oldDuration)",
+                newValue: "\(intervalMinutes)",
+                note: "Modified by user"
+            )
+        }
         touch()
     }
 }
@@ -372,27 +745,36 @@ struct AddExpenseSheet: View {
     @State private var selectedCategoryID: String = ExpenseCategoryDescriptor.defaultList.first?.id ?? ExpenseCategory.drinks.rawValue
     @State private var amount: Decimal = 0
     @State private var note: String = ""
+    @State private var receiptImage: UIImage?
+    @State private var showReceiptScanner = false
     @Query private var settings: [AppSettings]
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
-            FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
+                VStack(spacing: 16) {
                     header
-            compactInputs
-            noteCard
-            actionRow
-        }
-                .padding(.vertical, 16)
+                    compactInputs
+                    noteCard
+                    receiptCard
+                    actionRow
+                }
+                .padding(.top, 24)
+                .padding(.bottom, 14)
                 .padding(.horizontal, 16)
             }
         }
-        .presentationDetents([.fraction(0.45)])
+        .presentationDetents([.height(610)])
         .presentationDragIndicator(.visible)
         .onAppear { ensureValidSelection() }
         .onChange(of: categoryIDs) { _ in ensureValidSelection() }
+        .sheet(isPresented: $showReceiptScanner) {
+            ReceiptScanner(isPresented: $showReceiptScanner, onComplete: { image in
+                handleCapturedReceipt(image)
+            }, onCancel: { })
+        }
     }
 
     private var header: some View {
@@ -455,6 +837,53 @@ struct AddExpenseSheet: View {
         .flexErrnCardStyle()
     }
 
+    private var receiptCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Receipt")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    showReceiptScanner = true
+                } label: {
+                    Text(receiptImage == nil ? "Scan Receipt" : "Update Receipt")
+                        .font(.subheadline)
+                        .bold()
+                }
+            }
+            Group {
+                if let preview = receiptImage {
+                    Image(uiImage: preview)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 160)
+                        .cornerRadius(16)
+                } else {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.05))
+                        .frame(height: 120)
+                        .overlay(
+                            Text("Keeping the receipt here helps you recall the purchase.")
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.secondary)
+                                .padding()
+                        )
+                }
+            }
+            if receiptImage != nil {
+                Button("Remove receipt") {
+                    removeReceipt()
+                }
+                .font(.footnote)
+                .foregroundColor(.red)
+            }
+        }
+        .padding()
+        .flexErrnCardStyle()
+    }
+
     private var actionRow: some View {
         HStack(spacing: 12) {
             Button("Cancel") {
@@ -474,10 +903,22 @@ struct AddExpenseSheet: View {
     private func add() {
         let categoryRaw = categoryIDs.contains(selectedCategoryID) ? selectedCategoryID : defaultCategoryID
         let e = Expense(categoryRaw: categoryRaw, amount: amount, note: note)
+        if let image = receiptImage, let fileName = ReceiptStorage.save(image: image) {
+            e.receiptFileName = fileName
+        }
         block.expenses.append(e)
         let entry = AuditEntry(action: AuditAction.expenseAdded, field: "expense", newValue: categoryRaw)
         block.auditEntries.append(entry)
+        receiptImage = nil
         dismiss()
+    }
+
+    private func handleCapturedReceipt(_ image: UIImage) {
+        receiptImage = image
+    }
+
+    private func removeReceipt() {
+        receiptImage = nil
     }
 
     private var categories: [ExpenseCategoryDescriptor] {
@@ -500,6 +941,69 @@ struct AddExpenseSheet: View {
 
 }
 
+private struct AuditLogView: View {
+    let entries: [AuditEntry]
+
+    var body: some View {
+        ZStack {
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 16) {
+                    if entries.isEmpty {
+                        Text("No audit entries recorded for this block yet.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding()
+                    } else {
+                        ForEach(entries, id: \.id) { entry in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(entry.action.displayName)
+                                        .font(.headline)
+                                    Spacer()
+                                    Text(Self.timestampFormatter.string(from: entry.timestamp))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(entryDescription(entry))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                                    if let note = entry.note, !note.isEmpty {
+                                        Text(note)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .italic()
+                                    }
+                            }
+                            .padding()
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        }
+                    }
+                }
+                .padding()
+            }
+        }
+        .navigationTitle("Audit Log")
+    }
+
+    private func entryDescription(_ entry: AuditEntry) -> String {
+        if let field = entry.field {
+            let oldValue = entry.oldValue ?? "—"
+            let newValue = entry.newValue ?? "—"
+            return "\(field.capitalized): \(oldValue) → \(newValue)"
+        }
+        return "No additional details."
+    }
+
+    private static let timestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+}
+
 struct DecimalField: View {
     let title: String
     let prefix: String?
@@ -512,6 +1016,8 @@ struct DecimalField: View {
     }
 
     @State private var text: String = ""
+    @State private var pendingValue: Decimal?
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 6) {
@@ -519,39 +1025,49 @@ struct DecimalField: View {
                 Text(prefix)
                     .foregroundStyle(.secondary)
             }
-            TextField(title, text: Binding(
-                get: {
-                    if text.isEmpty {
-                        if value == 0 {
-                            return ""
-                        } else {
-                            return (value as NSDecimalNumber).stringValue
-                        }
-                    } else {
-                        return text
-                    }
-                },
-                set: { newText in
-                    text = newText
-                    if let d = Decimal(string: newText) { value = d }
+            TextField(title, text: $text)
+                .keyboardType(.decimalPad)
+                .focused($isFocused)
+                .onAppear {
+                    text = formattedValue(value)
                 }
-            ))
-            .keyboardType(.decimalPad)
-            .onAppear {
-                if value != 0 {
-                    text = (value as NSDecimalNumber).stringValue
-                } else {
-                    text = ""
-                }
-            }
-            .onChange(of: value) { newValue in
-                if text.isEmpty {
-                    if newValue != 0 {
-                        text = (newValue as NSDecimalNumber).stringValue
+                .onChange(of: text) { newText in
+                    if let decimal = Decimal(string: newText) {
+                        pendingValue = decimal
+                    } else if newText.isEmpty {
+                        pendingValue = nil
                     }
                 }
-            }
+                .onChange(of: isFocused) { focused in
+                    if !focused {
+                        commitPending()
+                    }
+                }
+                .onChange(of: value) { newValue in
+                    if !isFocused {
+                        text = formattedValue(newValue)
+                    }
+                }
         }
+    }
+
+    private func commitPending() {
+        guard let pending = pendingValue else {
+            pendingValue = nil
+            return
+        }
+        if pending != value {
+            value = pending
+        }
+        pendingValue = nil
+        text = formattedValue(value)
+    }
+
+    private func formattedValue(_ decimal: Decimal) -> String {
+        if decimal == 0 {
+            return ""
+        }
+        return (decimal as NSDecimalNumber).stringValue
     }
 }
 
@@ -559,7 +1075,10 @@ struct MilesField: View {
     let title: String
     @Binding var value: Decimal
     let displayValue: Decimal
+
     @State private var text: String = ""
+    @State private var pendingValue: Decimal?
+    @FocusState private var isFocused: Bool
 
     init(_ title: String, value: Binding<Decimal>, displayValue: Decimal) {
         self.title = title
@@ -568,31 +1087,46 @@ struct MilesField: View {
     }
 
     var body: some View {
-        TextField(title, text: Binding(
-            get: {
-                if text.isEmpty {
-                    if displayValue > 0 {
-                        return (displayValue as NSDecimalNumber).stringValue
-                    } else {
-                        return ""
-                    }
-                } else {
-                    return text
-                }
-            },
-            set: { newText in
-                text = newText
-                if let d = Decimal(string: newText) {
-                    value = d
+        TextField(title, text: $text)
+            .keyboardType(.decimalPad)
+            .focused($isFocused)
+            .onAppear {
+                text = formattedValue(displayValue)
+            }
+            .onChange(of: text) { newText in
+                if let decimal = Decimal(string: newText) {
+                    pendingValue = decimal
+                } else if newText.isEmpty {
+                    pendingValue = nil
                 }
             }
-        ))
-        .keyboardType(.decimalPad)
-        .onChange(of: displayValue) { newValue in
-            if text.isEmpty && newValue > 0 {
-                text = (newValue as NSDecimalNumber).stringValue
+            .onChange(of: isFocused) { focused in
+                if !focused {
+                    commitPending()
+                }
             }
+            .onChange(of: displayValue) { newValue in
+                if !isFocused && text.isEmpty {
+                    text = formattedValue(newValue)
+                }
+            }
+    }
+
+    private func commitPending() {
+        guard let pending = pendingValue else {
+            pendingValue = nil
+            return
         }
+        if pending != value {
+            value = pending
+        }
+        pendingValue = nil
+        text = formattedValue(value)
+    }
+
+    private func formattedValue(_ decimal: Decimal) -> String {
+        guard decimal > 0 else { return "" }
+        return (decimal as NSDecimalNumber).stringValue
     }
 }
 
@@ -654,6 +1188,58 @@ struct OptionalDecimalField: View {
     }
 }
 
+struct OptionalIntField: View {
+    let title: String
+    @Binding var value: Int?
+    @State private var text: String = ""
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            TextField("0", text: Binding(
+                get: {
+                    if text.isEmpty {
+                        if let v = value {
+                            return "\(v)"
+                        } else {
+                            return ""
+                        }
+                    } else {
+                        return text
+                    }
+                },
+                set: { newText in
+                    text = newText
+                    if newText.isEmpty {
+                        value = nil
+                    } else if let i = Int(newText) {
+                        value = i
+                    }
+                }
+            ))
+            .keyboardType(.numberPad)
+            .keyboardDoneToolbar()
+            .multilineTextAlignment(.trailing)
+            .frame(width: 80)
+            .onAppear {
+                if let v = value {
+                    text = "\(v)"
+                } else {
+                    text = ""
+                }
+            }
+            .onChange(of: value) { newValue in
+                if let nv = newValue {
+                    text = "\(nv)"
+                } else {
+                    text = ""
+                }
+            }
+        }
+    }
+}
+
 struct LiquidNotesField: View {
     let placeholder: String
     @Binding var text: String
@@ -669,8 +1255,339 @@ struct LiquidNotesField: View {
     }
 }
 
-private struct RouteMapView: UIViewRepresentable {
-    let routePoints: [RoutePoint]
+private struct ExpenseDetailView: View {
+    @Binding var expense: Expense
+    let categoryDescriptors: [ExpenseCategoryDescriptor]
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+    @State private var receiptPreview: UIImage?
+    @State private var showReceiptScanner = false
+    @State private var showReceiptFullscreen = false
+    var body: some View {
+        ZStack {
+            BlockErrnTheme.backgroundGradient.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+            detailCard
+        }
+                .padding()
+                .padding(.bottom, 32)
+            }
+        }
+        .navigationTitle("Expense Detail")
+        .onAppear {
+            receiptPreview = ReceiptStorage.loadImage(named: expense.receiptFileName)
+        }
+        .onChange(of: expense.receiptFileName) { newValue in
+            receiptPreview = ReceiptStorage.loadImage(named: newValue)
+        }
+        .sheet(isPresented: $showReceiptScanner) {
+            ReceiptScanner(isPresented: $showReceiptScanner, onComplete: { image in
+                handleCapturedReceipt(image)
+            }, onCancel: { })
+        }
+        .fullScreenCover(isPresented: $showReceiptFullscreen) {
+            if let preview = receiptPreview {
+                ZStack {
+                    Color.black
+                        .ignoresSafeArea()
+                    Image(uiImage: preview)
+                        .resizable()
+                        .scaledToFit()
+                        .padding()
+                        .background(.black)
+                        .cornerRadius(24)
+                        .shadow(radius: 30)
+                        .onTapGesture {
+                            showReceiptFullscreen = false
+                        }
+                }
+            } else {
+                Color.clear.onTapGesture {
+                    showReceiptFullscreen = false
+                }
+            }
+        }
+        .onDisappear {
+            save()
+        }
+    }
+
+    private var detailCard: some View {
+        VStack(spacing: 16) {
+            heroFields
+            exclusionToggle
+            receiptSection
+            noteField
+            timestampRow
+        }
+        .padding()
+        .flexErrnCardStyle()
+    }
+
+    private var heroFields: some View {
+        HStack(spacing: 12) {
+            heroBlock(title: "Category") {
+                Menu {
+                    ForEach(categoryDescriptors) { descriptor in
+                        Button(descriptor.name) {
+                            categoryBinding.wrappedValue = descriptor.id
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(selectedCategoryName)
+                            .font(.headline)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .tint(.accentColor)
+            }
+
+            heroBlock(title: "Amount") {
+                DecimalField("Amount", prefix: "$", value: amountBinding)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private var exclusionToggle: some View {
+        heroBlock(title: "Profit impact") {
+            Toggle("Exclude from profit", isOn: exclusionBinding)
+                .toggleStyle(.switch)
+                .tint(.accentColor)
+        }
+    }
+
+    private var noteField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Note")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            TextField("Add a note", text: noteBinding)
+                .textFieldStyle(.plain)
+                .padding(12)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
+                )
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+
+    private var receiptSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Receipt")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Spacer()
+                Button {
+                    showReceiptScanner = true
+                } label: {
+                    Text(receiptPreview == nil ? "Scan Receipt" : "Retake Receipt")
+                        .font(.subheadline)
+                        .bold()
+                }
+            }
+            Group {
+                if let preview = receiptPreview {
+                    Image(uiImage: preview)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 180)
+                        .cornerRadius(16)
+                        .onTapGesture {
+                            showReceiptFullscreen = true
+                        }
+                } else {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.05))
+                        .frame(height: 120)
+                        .overlay(
+                            Text("Receipts stay with the expense for later reference.")
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.secondary)
+                                .padding()
+                        )
+                }
+            }
+            if receiptPreview != nil {
+                Button("Delete receipt") {
+                    removeReceipt()
+                }
+                .font(.footnote)
+                .foregroundColor(.red)
+            }
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+        )
+    }
+
+    private var timestampRow: some View {
+        HStack {
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("Created at \(BlockDetailView.expenseTimestampFormatter.string(from: expense.createdAt))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                if let updated = expense.updatedAt, updated > expense.createdAt {
+                    Text("Last Modified at \(BlockDetailView.expenseTimestampFormatter.string(from: updated))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    @ViewBuilder
+    private func heroBlock<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            content()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
+        )
+    }
+
+    private var selectedCategoryName: String {
+        categoryDescriptors.first(where: { $0.id == expense.categoryRaw })?.name ?? expense.categoryRaw.capitalized
+    }
+
+    private var categoryBinding: Binding<String> {
+        Binding(
+            get: { expense.categoryRaw },
+            set: { newValue in
+                let oldValue = expense.categoryRaw
+                guard oldValue != newValue else { return }
+                expense.categoryRaw = newValue
+                logExpenseChange(
+                    field: "expenseCategory",
+                    oldValue: oldValue,
+                    newValue: newValue,
+                    note: "Modified expense category"
+                )
+                save()
+            }
+        )
+    }
+
+    private var amountBinding: Binding<Decimal> {
+        Binding(
+            get: { expense.amount },
+            set: { newValue in
+                let oldValue = expense.amount
+                guard oldValue != newValue else { return }
+                expense.amount = newValue
+                logExpenseChange(
+                    field: "expenseAmount",
+                    oldValue: auditDecimalString(oldValue),
+                    newValue: auditDecimalString(newValue),
+                    note: "Modified expense amount"
+                )
+                save()
+            }
+        )
+    }
+
+    private var noteBinding: Binding<String> {
+        Binding(
+            get: { expense.note ?? "" },
+            set: { newValue in
+                let oldValue = expense.note ?? ""
+                let normalizedNew = newValue.isEmpty ? nil : newValue
+                guard oldValue != newValue else {
+                    expense.note = normalizedNew
+                    return
+                }
+                expense.note = normalizedNew
+                logExpenseChange(
+                    field: "expenseNote",
+                    oldValue: oldValue.isEmpty ? nil : oldValue,
+                    newValue: normalizedNew,
+                    note: "Modified expense note"
+                )
+                save()
+            }
+        )
+    }
+
+    private var exclusionBinding: Binding<Bool> {
+        Binding(
+            get: { DeductionPreferenceStore.shared.isExpenseExcluded(expense.id) },
+            set: { newValue in
+                let oldValue = DeductionPreferenceStore.shared.isExpenseExcluded(expense.id)
+                guard oldValue != newValue else { return }
+                DeductionPreferenceStore.shared.setExpenseExcluded(newValue, expenseID: expense.id)
+                logExpenseChange(
+                    field: "expenseExcluded",
+                    oldValue: oldValue ? "true" : "false",
+                    newValue: newValue ? "true" : "false",
+                    note: newValue ? "Excluded expense from profit" : "Included expense in profit"
+                )
+                save()
+            }
+        )
+    }
+
+    private func save() {
+        expense.updatedAt = Date()
+        try? context.save()
+    }
+
+    private func logExpenseChange(field: String, oldValue: String?, newValue: String?, note: String) {
+        guard let block = expense.block else { return }
+        block.recordAuditEntry(action: .updated, field: field, oldValue: oldValue, newValue: newValue, note: note)
+    }
+
+    private func handleCapturedReceipt(_ image: UIImage) {
+        if let existing = expense.receiptFileName {
+            ReceiptStorage.delete(named: existing)
+        }
+        if let fileName = ReceiptStorage.save(image: image) {
+            expense.receiptFileName = fileName
+            receiptPreview = image
+            save()
+        }
+    }
+
+    private func removeReceipt() {
+        ReceiptStorage.delete(named: expense.receiptFileName)
+        expense.receiptFileName = nil
+        receiptPreview = nil
+        save()
+    }
+
+}
+
+    private struct RouteMapView: UIViewRepresentable {
+        let routeSegments: [[RoutePoint]]
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -687,39 +1604,43 @@ private struct RouteMapView: UIViewRepresentable {
         return mapView
     }
 
-    func updateUIView(_ mapView: MKMapView, context: Context) {
-        mapView.removeOverlays(mapView.overlays)
-        mapView.removeAnnotations(mapView.annotations)
+        func updateUIView(_ mapView: MKMapView, context: Context) {
+            mapView.removeOverlays(mapView.overlays)
+            mapView.removeAnnotations(mapView.annotations)
 
-        let coords = routePoints.map(\.coordinate)
-        guard !coords.isEmpty else {
-            let defaultCoordinate = CLLocationCoordinate2D(latitude: 37.3349, longitude: -122.00902)
-            mapView.region = MKCoordinateRegion(center: defaultCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
-            return
+            let segments = routeSegments.map { $0.map(\.coordinate) }.filter { !$0.isEmpty }
+            guard !segments.isEmpty else {
+                let defaultCoordinate = CLLocationCoordinate2D(latitude: 37.3349, longitude: -122.00902)
+                mapView.region = MKCoordinateRegion(center: defaultCoordinate, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+                return
+            }
+
+            let allCoords = segments.flatMap { $0 }
+            let region = regionForCoordinates(allCoords)
+            mapView.setRegion(region, animated: false)
+
+            for segment in segments {
+                if segment.count > 1 {
+                    let polyline = MKPolyline(coordinates: segment, count: segment.count)
+                    mapView.addOverlay(polyline)
+                }
+            }
+
+            for (index, segment) in segments.enumerated() {
+                if let start = segment.first {
+                    let annotation = MKPointAnnotation()
+                    annotation.coordinate = start
+                    annotation.title = title(for: index, total: segments.count, type: .start)
+                    mapView.addAnnotation(annotation)
+                }
+                if let end = segment.last, regionContains(region, coordinate: end) {
+                    let annotation = MKPointAnnotation()
+                    annotation.coordinate = end
+                    annotation.title = title(for: index, total: segments.count, type: .end)
+                    mapView.addAnnotation(annotation)
+                }
+            }
         }
-
-        let region = regionForCoordinates(coords)
-        mapView.setRegion(region, animated: false)
-
-        if coords.count > 1 {
-            let polyline = MKPolyline(coordinates: coords, count: coords.count)
-            mapView.addOverlay(polyline)
-        }
-
-        if let first = coords.first {
-            let annotation = MKPointAnnotation()
-            annotation.coordinate = first
-            annotation.title = "Start"
-            mapView.addAnnotation(annotation)
-        }
-
-        if let last = coords.last, regionContains(region, coordinate: last) {
-            let annotation = MKPointAnnotation()
-            annotation.coordinate = last
-            annotation.title = "End"
-            mapView.addAnnotation(annotation)
-        }
-    }
 
     private func regionForCoordinates(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
         let latitudes = coords.map(\.latitude)
@@ -733,13 +1654,23 @@ private struct RouteMapView: UIViewRepresentable {
         return MKCoordinateRegion(center: center, span: span)
     }
 
-    private func regionContains(_ region: MKCoordinateRegion, coordinate: CLLocationCoordinate2D) -> Bool {
-        let latInRange = coordinate.latitude >= region.center.latitude - region.span.latitudeDelta/2 &&
-            coordinate.latitude <= region.center.latitude + region.span.latitudeDelta/2
-        let lonInRange = coordinate.longitude >= region.center.longitude - region.span.longitudeDelta/2 &&
-            coordinate.longitude <= region.center.longitude + region.span.longitudeDelta/2
-        return latInRange && lonInRange
-    }
+        private func regionContains(_ region: MKCoordinateRegion, coordinate: CLLocationCoordinate2D) -> Bool {
+            let latInRange = coordinate.latitude >= region.center.latitude - region.span.latitudeDelta/2 &&
+                coordinate.latitude <= region.center.latitude + region.span.latitudeDelta/2
+            let lonInRange = coordinate.longitude >= region.center.longitude - region.span.longitudeDelta/2 &&
+                coordinate.longitude <= region.center.longitude + region.span.longitudeDelta/2
+            return latInRange && lonInRange
+        }
+
+        private enum AnnotationType { case start, end }
+
+        private func title(for index: Int, total: Int, type: AnnotationType) -> String {
+            if total == 1 {
+                return type == .start ? "Start" : "End"
+            }
+            let label = type == .start ? "Start" : "End"
+            return "\(label) - \(index + 1)"
+        }
 
     fileprivate class Coordinator: NSObject, MKMapViewDelegate {
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {

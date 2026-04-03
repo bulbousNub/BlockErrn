@@ -6,7 +6,7 @@ struct ContentView: View {
     @Query private var settings: [AppSettings]
     @State private var colorSchemeOverride: ColorScheme? = nil
     @StateObject private var blockNavigationState = BlockNavigationState()
-    @StateObject private var workModeCoordinator = WorkModeCoordinator()
+    @StateObject private var workModeCoordinator = WorkModeCoordinator.shared
 
     private var activeSettings: AppSettings? {
         settings.first
@@ -38,11 +38,17 @@ struct ContentView: View {
                     }
                     .tag(2)
 
+                DataView()
+                    .tabItem {
+                        Label("Data", systemImage: "externaldrive.connected.to.line.below")
+                    }
+                    .tag(3)
+
                 SettingsView()
                     .tabItem {
                         Label("Settings", systemImage: "gear")
                     }
-                    .tag(3)
+                    .tag(4)
             }
 
             if needsOnboarding, let settingsInstance = activeSettings {
@@ -71,7 +77,7 @@ struct ContentView: View {
 
 #Preview {
     let blockNavigationState = BlockNavigationState()
-    let workModeCoordinator = WorkModeCoordinator()
+    let workModeCoordinator = WorkModeCoordinator.shared
     let tabSelectionState = TabSelectionState()
 
     ContentView()

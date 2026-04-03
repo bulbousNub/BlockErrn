@@ -11,7 +11,7 @@ struct TrendView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     if blocks.isEmpty {
                         emptyState
@@ -342,7 +342,7 @@ struct TrendView: View {
             let label = frequency.label(for: start)
             let grossTotal = group.reduce(0) { $0 + $1.grossPayout }
             let tipTotal = group.reduce(0) { $0 + ($1.tipsAmount ?? 0) }
-            let totalMiles = group.reduce(0) { $0 + $1.miles }
+            let totalMiles = group.reduce(0) { $0 + $1.roundedMiles }
             let averageMiles = group.isEmpty ? 0 : totalMiles / Decimal(group.count)
             return PeriodStats(start: start, label: label, grossTotal: grossTotal, tipTotal: tipTotal, averageMiles: averageMiles, totalMiles: totalMiles, blocks: group)
         }
@@ -390,7 +390,7 @@ struct TrendView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(FlexErrnTheme.backgroundGradient, in: Capsule())
+                .background(BlockErrnTheme.backgroundGradient, in: Capsule())
             }
         }
     }
@@ -401,7 +401,7 @@ struct TrendView: View {
 
         var body: some View {
             ZStack {
-                FlexErrnTheme.backgroundGradient.ignoresSafeArea()
+                BlockErrnTheme.backgroundGradient.ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
                         ForEach(stats) { stat in
