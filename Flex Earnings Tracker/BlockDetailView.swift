@@ -15,7 +15,9 @@ struct BlockDetailView: View {
     @State private var showStartConfirmation = false
     @State private var showCompletionPrompt = false
     @State private var showAuditLog = false
+    @State private var showDeleteConfirmation = false
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
     private var showLegacyTrackingControls: Bool { false }
 
@@ -29,6 +31,7 @@ struct BlockDetailView: View {
                     scheduleCard
                     routeCard
                     mileageCard
+                    deliveryCard
                     expensesCard
                     totalsCard
                 }
@@ -43,6 +46,9 @@ struct BlockDetailView: View {
                 Menu {
                     Button("Audit Log") {
                         showAuditLog = true
+                    }
+                    Button("Delete Block", role: .destructive) {
+                        showDeleteConfirmation = true
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -78,6 +84,14 @@ struct BlockDetailView: View {
             Button("Keep Status", role: .cancel) { }
         } message: {
             Text("Tracking stopped. Would you like to mark this block as completed?")
+        }
+        .alert("Delete this block?", isPresented: $showDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                deleteBlock()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently remove the block and all associated data. This cannot be undone.")
         }
     }
 
@@ -354,6 +368,30 @@ struct BlockDetailView: View {
         .flexErrnCardStyle()
     }
 
+    private var deliveryCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Delivery")
+                .font(.headline)
+            OptionalIntField(
+                title: "Packages",
+                value: auditedBinding(
+                    \.packageCount,
+                    field: "packageCount",
+                    formatter: { $0.map(String.init) ?? "—" }
+                )
+            )
+            OptionalIntField(
+                title: "Stops",
+                value: auditedBinding(
+                    \.stopCount,
+                    field: "stopCount",
+                    formatter: { $0.map(String.init) ?? "—" }
+                )
+            )
+        }
+        .flexErrnCardStyle()
+    }
+
     private var expensesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -563,6 +601,12 @@ struct BlockDetailView: View {
         block.status = .completed
         log(AuditAction.statusChanged)
         touch()
+    }
+
+    private func deleteBlock() {
+        context.delete(block)
+        try? context.save()
+        dismiss()
     }
 
     private func log(_ action: AuditAction, field: String? = nil, oldValue: String? = nil, newValue: String? = nil, note: String? = nil) {
@@ -1136,6 +1180,58 @@ struct OptionalDecimalField: View {
             .onChange(of: value) { newValue in
                 if let nv = newValue {
                     text = (nv as NSDecimalNumber).stringValue
+                } else {
+                    text = ""
+                }
+            }
+        }
+    }
+}
+
+struct OptionalIntField: View {
+    let title: String
+    @Binding var value: Int?
+    @State private var text: String = ""
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            TextField("0", text: Binding(
+                get: {
+                    if text.isEmpty {
+                        if let v = value {
+                            return "\(v)"
+                        } else {
+                            return ""
+                        }
+                    } else {
+                        return text
+                    }
+                },
+                set: { newText in
+                    text = newText
+                    if newText.isEmpty {
+                        value = nil
+                    } else if let i = Int(newText) {
+                        value = i
+                    }
+                }
+            ))
+            .keyboardType(.numberPad)
+            .keyboardDoneToolbar()
+            .multilineTextAlignment(.trailing)
+            .frame(width: 80)
+            .onAppear {
+                if let v = value {
+                    text = "\(v)"
+                } else {
+                    text = ""
+                }
+            }
+            .onChange(of: value) { newValue in
+                if let nv = newValue {
+                    text = "\(nv)"
                 } else {
                     text = ""
                 }

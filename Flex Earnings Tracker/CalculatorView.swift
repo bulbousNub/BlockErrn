@@ -114,6 +114,9 @@ struct CalculatorView: View {
                 )
                 block.updatedAt = Date()
                 try? context.save()
+                LiveActivityManager.shared.endActivity(finalMiles: NSDecimalNumber(decimal: block.miles).doubleValue)
+            } else {
+                LiveActivityManager.shared.endActivity()
             }
     }
 
@@ -135,6 +138,8 @@ struct CalculatorView: View {
     private func completeBlockAfterStoppingGPS(_ block: Block) {
         if mileageTracker.isTracking && mileageTracker.currentBlockID == block.id {
             handleWorkModeStop()
+        } else {
+            LiveActivityManager.shared.endActivity()
         }
         let completionTime = Date()
         block.userCompletionTime = completionTime
@@ -175,6 +180,11 @@ struct CalculatorView: View {
                 note: "Started via work mode"
             )
             try? context.saveIfNeeded()
+            LiveActivityManager.shared.startActivity(
+                blockID: block.id,
+                scheduledStart: block.scheduledStartDate,
+                scheduledEnd: block.scheduledEndDate
+            )
             enterWorkMode(block)
         }
     }
@@ -188,6 +198,14 @@ struct CalculatorView: View {
                         routeSegments: workModeRouteSegments,
                         mileageDisplay: workModeMileageDisplay,
                         isTracking: mileageTracker.isTracking && mileageTracker.currentBlockID == workBlock.id,
+                        packageCount: Binding(
+                            get: { workBlock.packageCount },
+                            set: { workBlock.packageCount = $0; workBlock.updatedAt = Date(); try? context.save() }
+                        ),
+                        stopCount: Binding(
+                            get: { workBlock.stopCount },
+                            set: { workBlock.stopCount = $0; workBlock.updatedAt = Date(); try? context.save() }
+                        ),
                         onAddExpense: { showWorkModeExpenseSheet = true },
                         onStartTracking: {
                             mileageTracker.requestAuthorization()
@@ -702,6 +720,8 @@ struct CalculatorView: View {
         let routeSegments: [[RoutePoint]]?
         let mileageDisplay: String?
         let isTracking: Bool
+        @Binding var packageCount: Int?
+        @Binding var stopCount: Int?
         let onAddExpense: () -> Void
         let onStartTracking: () -> Void
         let onStopTracking: () -> Void
@@ -733,6 +753,50 @@ struct CalculatorView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                HStack(spacing: 16) {
+                    HStack(spacing: 6) {
+                        Text("Pkgs")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("0", text: Binding(
+                            get: { packageCount.map(String.init) ?? "" },
+                            set: { newText in
+                                if newText.isEmpty {
+                                    packageCount = nil
+                                } else if let i = Int(newText) {
+                                    packageCount = i
+                                }
+                            }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 50)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    HStack(spacing: 6) {
+                        Text("Stops")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("0", text: Binding(
+                            get: { stopCount.map(String.init) ?? "" },
+                            set: { newText in
+                                if newText.isEmpty {
+                                    stopCount = nil
+                                } else if let i = Int(newText) {
+                                    stopCount = i
+                                }
+                            }
+                        ))
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 50)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    Spacer()
+                }
+                .keyboardDoneToolbar()
                 HStack(spacing: 12) {
                     Button("Add Expense") {
                         onAddExpense()

@@ -259,6 +259,11 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
         try? context.save()
         mileageTracker.requestAuthorization()
         mileageTracker.startTracking(for: block.id)
+        LiveActivityManager.shared.startActivity(
+            blockID: block.id,
+            scheduledStart: block.scheduledStartDate,
+            scheduledEnd: block.scheduledEndDate
+        )
         DispatchQueue.main.async {
             WorkModeCoordinator.shared.startManually(block)
         }
@@ -337,6 +342,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
             block.appendRouteSegment(routePoints)
             block.recordAuditEntry(action: .milesUpdated, field: "miles", newValue: auditDecimalString(block.miles), note: "Captured via CarPlay")
         }
+        LiveActivityManager.shared.endActivity(finalMiles: NSDecimalNumber(decimal: block.miles).doubleValue)
         block.recordAuditEntry(action: .updated, field: "userCompletionTime", newValue: auditDateString(Date()), note: "Completed via CarPlay")
         block.userCompletionTime = Date()
         block.status = .completed

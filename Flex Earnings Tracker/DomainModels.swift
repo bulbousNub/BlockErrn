@@ -257,6 +257,9 @@ public final class Block {
     public var userStartTime: Date?
     public var userCompletionTime: Date?
 
+    public var packageCount: Int?
+    public var stopCount: Int?
+
     public var statusRaw: String
 
     @Relationship(deleteRule: .cascade, inverse: \Expense.block) public var expenses: [Expense]
@@ -286,7 +289,9 @@ public final class Block {
         endTime: Date? = nil,
         routePointsData: Data? = nil,
         userStartTime: Date? = nil,
-        userCompletionTime: Date? = nil
+        userCompletionTime: Date? = nil,
+        packageCount: Int? = nil,
+        stopCount: Int? = nil
     ) {
         self.id = id
         self.date = date
@@ -307,6 +312,8 @@ public final class Block {
         self.routePointsData = routePointsData
         self.userStartTime = userStartTime
         self.userCompletionTime = userCompletionTime
+        self.packageCount = packageCount
+        self.stopCount = stopCount
     }
 
     public var status: BlockStatus {

@@ -186,6 +186,7 @@ extension MileageTracker: CLLocationManagerDelegate {
             lastLocation = location
             routePoints.append(RoutePoint(location: location))
         }
+        LiveActivityManager.shared.updateMiles(currentMiles)
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

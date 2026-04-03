@@ -51,6 +51,14 @@ struct PeriodStats: Identifiable {
         guard totalHours > 0 else { return totalProfit }
         return totalProfit / totalHours
     }
+
+    var totalPackages: Int {
+        blocks.compactMap(\.packageCount).reduce(0, +)
+    }
+
+    var totalStops: Int {
+        blocks.compactMap(\.stopCount).reduce(0, +)
+    }
 }
 
 enum TrendFrequency {
@@ -177,6 +185,8 @@ struct TrendDetailView: View {
             summaryRow(title: "Gross $/hr", value: formatCurrency(stats.grossPerHour))
             summaryRow(title: "Gross + tips $/hr", value: formatCurrency(stats.grossPlusTipsPerHour))
             summaryRow(title: "Total miles", value: formatMiles(stats.totalMiles))
+            summaryRow(title: "Total packages", value: "\(stats.totalPackages)")
+            summaryRow(title: "Total stops", value: "\(stats.totalStops)")
             summaryRow(title: "Mileage deduction", value: formatCurrency(stats.totalMileageDeduction))
             summaryRow(title: "Total expenses", value: formatCurrency(stats.totalExpenses))
             summaryRow(title: "Total profit", value: formatCurrency(stats.totalProfit))
@@ -300,6 +310,11 @@ struct TrendBlockRow: View {
                         .font(.caption2)
                 }
             }
+            if block.packageCount != nil || block.stopCount != nil {
+                Text("Pkgs: \(block.packageCount ?? 0) \u{2022} Stops: \(block.stopCount ?? 0)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding()
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -379,6 +394,9 @@ struct TrendSummaryRow: View {
                         .foregroundColor(.secondary)
                 }
             }
+            Text("Pkgs: \(stats.totalPackages) \u{2022} Stops: \(stats.totalStops)")
+                .font(.caption2)
+                .foregroundColor(.secondary)
         }
     }
 

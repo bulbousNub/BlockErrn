@@ -6,7 +6,20 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D16BD4BD2F805159003B8986 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D16BD4BC2F805159003B8986 /* WidgetKit.framework */; };
+		D16BD4BF2F805159003B8986 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D16BD4BE2F805159003B8986 /* SwiftUI.framework */; };
+		D16BD4D02F80515A003B8986 /* BlockErrnWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D16BD4BA2F805159003B8986 /* BlockErrnWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		D16BD4CE2F80515A003B8986 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D196310A2F72C37700766B99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D16BD4B92F805159003B8986;
+			remoteInfo = BlockErrnWidgetsExtension;
+		};
 		D19631202F72C37800766B99 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D196310A2F72C37700766B99 /* Project object */;
@@ -23,16 +36,62 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		D16BD4D52F80515A003B8986 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D16BD4D02F80515A003B8986 /* BlockErrnWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		D16BD4BA2F805159003B8986 /* BlockErrnWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BlockErrnWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D16BD4BC2F805159003B8986 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		D16BD4BE2F805159003B8986 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		D19631122F72C37700766B99 /* BlockErrn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BlockErrn.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D196311F2F72C37800766B99 /* BlockErrnTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlockErrnTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D19631292F72C37800766B99 /* BlockErrnUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlockErrnUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1BB9EEA2F74B52A0072981D /* BlockErrn-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "BlockErrn-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D16BD4D12F80515A003B8986 /* Exceptions for "BlockErrnWidgets" folder in "BlockErrnWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				BlockErrnLiveActivityWidget.swift,
+				Info.plist,
+			);
+			target = D16BD4B92F805159003B8986 /* BlockErrnWidgetsExtension */;
+		};
+		D16BD4DB2F805175003B8986 /* Exceptions for "Flex Earnings Tracker" folder in "BlockErrnWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				BlockTrackingAttributes.swift,
+			);
+			target = D16BD4B92F805159003B8986 /* BlockErrnWidgetsExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		D16BD4C02F805159003B8986 /* BlockErrnWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D16BD4D12F80515A003B8986 /* Exceptions for "BlockErrnWidgets" folder in "BlockErrnWidgetsExtension" target */,
+			);
+			path = BlockErrnWidgets;
+			sourceTree = "<group>";
+		};
 		D19631142F72C37700766B99 /* Flex Earnings Tracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D16BD4DB2F805175003B8986 /* Exceptions for "Flex Earnings Tracker" folder in "BlockErrnWidgetsExtension" target */,
+			);
 			path = "Flex Earnings Tracker";
 			sourceTree = "<group>";
 		};
@@ -49,6 +108,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		D16BD4B72F805159003B8986 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D16BD4BF2F805159003B8986 /* SwiftUI.framework in Frameworks */,
+				D16BD4BD2F805159003B8986 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D196310F2F72C37700766B99 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -73,6 +141,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D16BD4B32F80501F003B8986 /* BlockErrnWidgets */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = BlockErrnWidgets;
+			sourceTree = "<group>";
+		};
+		D16BD4BB2F805159003B8986 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D16BD4BC2F805159003B8986 /* WidgetKit.framework */,
+				D16BD4BE2F805159003B8986 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		D19631092F72C37700766B99 = {
 			isa = PBXGroup;
 			children = (
@@ -80,7 +164,10 @@
 				D19631142F72C37700766B99 /* Flex Earnings Tracker */,
 				D19631222F72C37800766B99 /* Flex Earnings TrackerTests */,
 				D196312C2F72C37800766B99 /* Flex Earnings TrackerUITests */,
+				D16BD4C02F805159003B8986 /* BlockErrnWidgets */,
+				D16BD4BB2F805159003B8986 /* Frameworks */,
 				D19631132F72C37700766B99 /* Products */,
+				D16BD4B32F80501F003B8986 /* BlockErrnWidgets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -90,6 +177,7 @@
 				D19631122F72C37700766B99 /* BlockErrn.app */,
 				D196311F2F72C37800766B99 /* BlockErrnTests.xctest */,
 				D19631292F72C37800766B99 /* BlockErrnUITests.xctest */,
+				D16BD4BA2F805159003B8986 /* BlockErrnWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -97,6 +185,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		D16BD4B92F805159003B8986 /* BlockErrnWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D16BD4D22F80515A003B8986 /* Build configuration list for PBXNativeTarget "BlockErrnWidgetsExtension" */;
+			buildPhases = (
+				D16BD4B62F805159003B8986 /* Sources */,
+				D16BD4B72F805159003B8986 /* Frameworks */,
+				D16BD4B82F805159003B8986 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D16BD4C02F805159003B8986 /* BlockErrnWidgets */,
+			);
+			name = BlockErrnWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = BlockErrnWidgetsExtension;
+			productReference = D16BD4BA2F805159003B8986 /* BlockErrnWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		D19631112F72C37700766B99 /* BlockErrn */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D19631332F72C37800766B99 /* Build configuration list for PBXNativeTarget "BlockErrn" */;
@@ -104,10 +214,12 @@
 				D196310E2F72C37700766B99 /* Sources */,
 				D196310F2F72C37700766B99 /* Frameworks */,
 				D19631102F72C37700766B99 /* Resources */,
+				D16BD4D52F80515A003B8986 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D16BD4CF2F80515A003B8986 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				D19631142F72C37700766B99 /* Flex Earnings Tracker */,
@@ -175,6 +287,9 @@
 				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
+					D16BD4B92F805159003B8986 = {
+						CreatedOnToolsVersion = 26.3;
+					};
 					D19631112F72C37700766B99 = {
 						CreatedOnToolsVersion = 26.3;
 					};
@@ -205,11 +320,19 @@
 				D19631112F72C37700766B99 /* BlockErrn */,
 				D196311E2F72C37800766B99 /* BlockErrnTests */,
 				D19631282F72C37800766B99 /* BlockErrnUITests */,
+				D16BD4B92F805159003B8986 /* BlockErrnWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		D16BD4B82F805159003B8986 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D19631102F72C37700766B99 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -234,6 +357,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		D16BD4B62F805159003B8986 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D196310E2F72C37700766B99 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -258,6 +388,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		D16BD4CF2F80515A003B8986 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D16BD4B92F805159003B8986 /* BlockErrnWidgetsExtension */;
+			targetProxy = D16BD4CE2F80515A003B8986 /* PBXContainerItemProxy */;
+		};
 		D19631212F72C37800766B99 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D19631112F72C37700766B99 /* BlockErrn */;
@@ -271,6 +406,68 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		D16BD4D32F80515A003B8986 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8B5Y76UV6F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BlockErrnWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BlockErrnWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrn.BlockErrnWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D16BD4D42F80515A003B8986 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8B5Y76UV6F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BlockErrnWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BlockErrnWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrn.BlockErrnWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		D19631312F72C37800766B99 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -579,6 +776,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		D16BD4D22F80515A003B8986 /* Build configuration list for PBXNativeTarget "BlockErrnWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D16BD4D32F80515A003B8986 /* Debug */,
+				D16BD4D42F80515A003B8986 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		D196310D2F72C37700766B99 /* Build configuration list for PBXProject "Flex Earnings Tracker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
