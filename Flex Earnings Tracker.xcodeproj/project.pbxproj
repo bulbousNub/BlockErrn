@@ -64,7 +64,6 @@
 		D16BD4D12F80515A003B8986 /* Exceptions for "BlockErrnWidgets" folder in "BlockErrnWidgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				BlockErrnLiveActivityWidget.swift,
 				Info.plist,
 			);
 			target = D16BD4B92F805159003B8986 /* BlockErrnWidgetsExtension */;
@@ -76,12 +75,20 @@
 			);
 			target = D16BD4B92F805159003B8986 /* BlockErrnWidgetsExtension */;
 		};
+		D16BD5972F80671A003B8986 /* Exceptions for "BlockErrnWidgets" folder in "BlockErrn" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				BlockErrnLiveActivityWidget.swift,
+			);
+			target = D19631112F72C37700766B99 /* BlockErrn */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D16BD4C02F805159003B8986 /* BlockErrnWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				D16BD5972F80671A003B8986 /* Exceptions for "BlockErrnWidgets" folder in "BlockErrn" target */,
 				D16BD4D12F80515A003B8986 /* Exceptions for "BlockErrnWidgets" folder in "BlockErrnWidgetsExtension" target */,
 			);
 			path = BlockErrnWidgets;

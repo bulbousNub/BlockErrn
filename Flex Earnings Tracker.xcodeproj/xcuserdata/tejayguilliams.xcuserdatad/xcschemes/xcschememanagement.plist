@@ -7,12 +7,14 @@
 		<key>BlockErrn.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 		<key>BlockErrnWidgetsExtension.xcscheme_^#shared#^_</key>
 		<dict>
+			<key>isShown</key>
+			<true/>
 			<key>orderHint</key>
-			<integer>1</integer>
+			<integer>0</integer>
 		</dict>
 		<key>Flex Earnings Tracker.xcscheme_^#shared#^_</key>
 		<dict>
@@ -23,6 +25,19 @@
 		<dict>
 			<key>orderHint</key>
 			<integer>0</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>D16BD4B92F805159003B8986</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>D19631112F72C37700766B99</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>
