@@ -1,13 +1,21 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 @main
 struct BlockErrnApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    private let container = ModelStorage.shared.container
+
+    init() {
+        _ = ModelStorage.shared
+    }
+
     var body: some Scene {
         WindowGroup {
             Bootstrapper()
         }
-        .modelContainer(for: [Block.self, Expense.self, AuditEntry.self, AppSettings.self])
+        .modelContainer(container)
     }
 }
 

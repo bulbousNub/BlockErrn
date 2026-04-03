@@ -336,6 +336,16 @@ struct CalculatorView: View {
                 enterWorkMode(block)
                 workModeCoordinator.blockToStart = nil
             }
+            .onChange(of: workModeCoordinator.blockToStop) { block in
+                guard let block = block else { return }
+                if workModeBlock?.id == block.id {
+                    withAnimation {
+                        workModeBlock = nil
+                        workModeCollapsed = false
+                    }
+                }
+                workModeCoordinator.blockToStop = nil
+            }
         }
     }
 

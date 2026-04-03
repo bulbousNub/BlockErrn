@@ -8,5 +8,24 @@
 	</array>
 	<key>NSMotionUsageDescription</key>
 	<string>BlockErrn uses motion data to detect when you are in a vehicle so it can count IRS-eligible driving miles only.</string>
+	<key>UIApplicationSupportsMultipleScenes</key>
+	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>CarPlayScene</string>
+					<key>UISceneClassName</key>
+					<string>CPTemplateApplicationScene</string>
+					<key>UISceneDelegateClassName</key>
+					<string>BlockErrnCarPlaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 </dict>
 </plist>
