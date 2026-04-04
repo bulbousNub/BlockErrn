@@ -50,13 +50,25 @@ final class WatchSessionManager: NSObject, ObservableObject {
     // MARK: - Send Commands
 
     func sendCommand(_ command: WatchCommand, blockID: UUID? = nil, params: [String: String]? = nil) {
-        guard let session, session.isReachable else { return }
+        guard let session, session.isReachable else {
+            print("Watch: sendCommand(\(command)) skipped - not reachable")
+            return
+        }
         let message = WatchCommandMessage(command: command, blockID: blockID, params: params)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         guard let data = try? encoder.encode(message) else { return }
         let payload: [String: Any] = [WatchMessageKey.commandPayload: data]
-        session.sendMessage(payload, replyHandler: nil) { error in
+        print("Watch: Sending command \(command)")
+        session.sendMessage(payload, replyHandler: { [weak self] reply in
+            print("Watch: Got reply for \(command): \(reply.keys)")
+            // After a mutating command, request a fresh sync to get updated state
+            if command == .createBlock || command == .completeBlock || command == .startBlock || command == .makeActive {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self?.requestSync()
+                }
+            }
+        }) { error in
             print("Watch: Failed to send command \(command): \(error.localizedDescription)")
         }
     }

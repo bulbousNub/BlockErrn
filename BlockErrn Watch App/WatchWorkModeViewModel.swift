@@ -52,8 +52,12 @@ final class WatchWorkModeViewModel: ObservableObject {
     }
 
     var liveMileageDeduction: Decimal {
-        let milesDecimal = Decimal(liveMiles)
-        return milesDecimal * irsRateDecimal
+        // Round total miles to whole number using standard rounding (.5+ rounds up)
+        // to match iOS CalculatorView behavior
+        var totalMilesDecimal = totalMiles
+        var roundedMiles = Decimal()
+        NSDecimalRound(&roundedMiles, &totalMilesDecimal, 0, .plain)
+        return roundedMiles * irsRateDecimal
     }
 
     var grossPayout: Decimal {

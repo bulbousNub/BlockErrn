@@ -331,6 +331,7 @@ final class PhoneWatchSessionManager: NSObject, ObservableObject {
             note: "Completed via Apple Watch"
         )
         block.status = .completed
+        NotificationManager.shared.cancelNonTipReminders(for: block.id)
         block.recordAuditEntry(
             action: .statusChanged,
             field: "status",
@@ -352,8 +353,13 @@ final class PhoneWatchSessionManager: NSObject, ObservableObject {
         let isoFormatter = ISO8601DateFormatter()
         guard let date = isoFormatter.date(from: dateStr),
               let startTime = isoFormatter.date(from: startStr),
-              let endTime = isoFormatter.date(from: endStr),
+              var endTime = isoFormatter.date(from: endStr),
               let grossBase = Decimal(string: grossStr) else { return }
+
+        // Handle overnight blocks — Watch should already adjust, but be safe
+        if endTime <= startTime {
+            endTime = Calendar.current.date(byAdding: .day, value: 1, to: endTime) ?? endTime
+        }
 
         let settingsDescriptor = FetchDescriptor<AppSettings>()
         let settings = (try? context.fetch(settingsDescriptor)) ?? []

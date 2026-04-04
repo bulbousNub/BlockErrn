@@ -6,24 +6,22 @@ struct WatchNewBlockFlow: View {
 
     @State private var step = 0
     @State private var selectedDate = Date()
-    @State private var startTime = Date()
-    @State private var endTime = Date().addingTimeInterval(3600 * 3.5)
+    @State private var startTime = Self.nextQuarterHour()
+    @State private var endTime = Self.nextQuarterHour().addingTimeInterval(3600 * 3.5)
     @State private var basePay: Double = 75.0
-
-    private let payStep: Double = 0.50
-    private let minPay: Double = 0.00
-    private let maxPay: Double = 999.50
 
     var body: some View {
         NavigationStack {
-            TabView(selection: $step) {
-                dateStep.tag(0)
-                startTimeStep.tag(1)
-                endTimeStep.tag(2)
-                basePayStep.tag(3)
-                confirmStep.tag(4)
+            VStack {
+                switch step {
+                case 0: dateStep
+                case 1: startTimeStep
+                case 2: endTimeStep
+                case 3: basePayStep
+                case 4: confirmStep
+                default: EmptyView()
+                }
             }
-            .tabViewStyle(.verticalPage)
             .navigationTitle("New Block")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -100,28 +98,23 @@ struct WatchNewBlockFlow: View {
     // MARK: - Step 4: Base Pay
 
     private var basePayStep: some View {
-        VStack(spacing: 8) {
-            Text("Base Pay")
-                .font(.headline)
-
+        VStack(spacing: 6) {
             Text(payString)
-                .font(.title2)
+                .font(.system(.title, design: .rounded))
                 .fontWeight(.bold)
                 .foregroundStyle(.green)
-                .focusable()
-                .digitalCrownRotation(
-                    $basePay,
-                    from: minPay,
-                    through: maxPay,
-                    by: payStep,
-                    sensitivity: .low,
-                    isContinuous: false,
-                    isHapticFeedbackEnabled: true
-                )
 
-            Text("Use Digital Crown")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button { basePay = max(0, basePay - 5) } label: {
+                    Text("- $5").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Button { basePay += 5 } label: {
+                    Text("+ $5").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
 
             HStack {
                 backButton
@@ -129,6 +122,14 @@ struct WatchNewBlockFlow: View {
             }
         }
         .padding(.horizontal)
+        .focusable()
+        .digitalCrownRotation(
+            $basePay,
+            from: 0,
+            through: 500,
+            by: 0.25,
+            sensitivity: .medium
+        )
     }
 
     // MARK: - Step 5: Confirm
@@ -172,14 +173,21 @@ struct WatchNewBlockFlow: View {
         WatchFormatters.currency.string(from: NSNumber(value: basePay)) ?? "$0.00"
     }
 
-    private var computedDuration: String {
-        let combinedStart = combineDateAndTime(date: selectedDate, time: startTime)
-        let combinedEnd = combineDateAndTime(date: selectedDate, time: endTime)
-        var end = combinedEnd
-        if end <= combinedStart {
-            end = Calendar.current.date(byAdding: .day, value: 1, to: end) ?? end
+    private var combinedStart: Date {
+        combineDateAndTime(date: selectedDate, time: startTime)
+    }
+
+    private var combinedEnd: Date {
+        let rawEnd = combineDateAndTime(date: selectedDate, time: endTime)
+        // Handle overnight blocks (end time before start time means next day)
+        if rawEnd <= combinedStart {
+            return Calendar.current.date(byAdding: .day, value: 1, to: rawEnd) ?? rawEnd
         }
-        let minutes = max(1, Int(end.timeIntervalSince(combinedStart) / 60))
+        return rawEnd
+    }
+
+    private var computedDuration: String {
+        let minutes = max(1, Int(combinedEnd.timeIntervalSince(combinedStart) / 60))
         return WatchFormatters.durationString(minutes: minutes)
     }
 
@@ -217,9 +225,6 @@ struct WatchNewBlockFlow: View {
     // MARK: - Create Block
 
     private func createBlock() {
-        let combinedStart = combineDateAndTime(date: selectedDate, time: startTime)
-        let combinedEnd = combineDateAndTime(date: selectedDate, time: endTime)
-
         let isoFormatter = ISO8601DateFormatter()
         let params: [String: String] = [
             "date": isoFormatter.string(from: selectedDate),
@@ -242,5 +247,17 @@ struct WatchNewBlockFlow: View {
         combined.hour = timeComponents.hour
         combined.minute = timeComponents.minute
         return calendar.date(from: combined) ?? date
+    }
+
+    /// Rounds the current time up to the next 15-minute interval.
+    /// e.g. 9:47 → 10:00, 9:00 → 9:00 (already on boundary), 9:01 → 9:15
+    private static func nextQuarterHour() -> Date {
+        let calendar = Calendar.current
+        let now = Date()
+        let minute = calendar.component(.minute, from: now)
+        let remainder = minute % 15
+        if remainder == 0 { return now }
+        let minutesToAdd = 15 - remainder
+        return calendar.date(byAdding: .minute, value: minutesToAdd, to: now) ?? now
     }
 }

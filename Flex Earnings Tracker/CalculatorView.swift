@@ -1103,6 +1103,7 @@ struct CalculatorView: View {
     private func complete(_ block: Block, note: String = "Marked completed from calculator") {
         guard block.status != .completed else { return }
         block.status = .completed
+        NotificationManager.shared.cancelNonTipReminders(for: block.id)
         logStatusChange(for: block, note: note)
         block.updatedAt = Date()
         context.saveIfNeeded()

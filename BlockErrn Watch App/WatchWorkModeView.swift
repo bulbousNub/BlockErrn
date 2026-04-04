@@ -1,13 +1,44 @@
 import SwiftUI
 import MapKit
 
+/// Snapshot of block data captured at completion time, before the live state resets.
+struct CompletedBlockSnapshot {
+    let grossPayout: Decimal
+    let totalMiles: Decimal
+    let mileageDeduction: Decimal
+    let totalProfit: Decimal
+    let packageCount: Int
+    let stopCount: Int
+    let timeRange: String
+    let routeData: Data?
+}
+
 struct WatchWorkModeView: View {
     @EnvironmentObject var sessionManager: WatchSessionManager
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = WatchWorkModeViewModel()
     @State private var showCompleteConfirmation = false
     @State private var selectedTab = 0
+    @State private var showFullMap = false
+    @State private var completedSnapshot: CompletedBlockSnapshot?
+    @State private var showSummary = false
 
     var body: some View {
+        Group {
+            if showSummary, let snapshot = completedSnapshot {
+                WatchBlockCompletionSummary(snapshot: snapshot) {
+                    showSummary = false
+                    completedSnapshot = nil
+                    dismiss()
+                }
+            } else {
+                workModeContent
+            }
+        }
+        .navigationBarBackButtonHidden(showSummary || sessionManager.workModeBlockID != nil)
+    }
+
+    private var workModeContent: some View {
         TabView(selection: $selectedTab) {
             statsPage
                 .tag(0)
@@ -19,12 +50,6 @@ struct WatchWorkModeView: View {
                 .tag(2)
         }
         .tabViewStyle(.verticalPage)
-        .navigationBarBackButtonHidden(sessionManager.workModeBlockID != nil)
-        .onChange(of: sessionManager.workModeBlockID) {
-            if sessionManager.workModeBlockID == nil {
-                // Block completed, will auto-navigate back
-            }
-        }
     }
 
     // MARK: - Page 1: Live Stats
@@ -205,7 +230,21 @@ struct WatchWorkModeView: View {
                     titleVisibility: .visible
                 ) {
                     Button("End Block", role: .destructive) {
+                        // Capture current stats before the block data resets
+                        completedSnapshot = CompletedBlockSnapshot(
+                            grossPayout: viewModel.grossPayout,
+                            totalMiles: viewModel.totalMiles,
+                            mileageDeduction: viewModel.liveMileageDeduction,
+                            totalProfit: viewModel.totalProfit,
+                            packageCount: viewModel.packageCount,
+                            stopCount: viewModel.stopCount,
+                            timeRange: viewModel.block.map {
+                                WatchFormatters.timeRangeString(start: $0.startTime, end: $0.endTime, duration: $0.durationMinutes)
+                            } ?? "",
+                            routeData: viewModel.block?.routePointsEncoded
+                        )
                         viewModel.completeBlock()
+                        showSummary = true
                     }
                     Button("Cancel", role: .cancel) {}
                 }
@@ -222,7 +261,8 @@ struct WatchWorkModeView: View {
                let routeData = block.routePointsEncoded,
                let coordinates = decodeRoutePoints(routeData),
                !coordinates.isEmpty {
-                Map {
+                // Non-interactive map preview — tap to open full interactive map
+                Map(interactionModes: []) {
                     MapPolyline(coordinates: coordinates)
                         .stroke(.blue, lineWidth: 3)
                     if let last = coordinates.last {
@@ -236,6 +276,21 @@ struct WatchWorkModeView: View {
                                 )
                         }
                     }
+                }
+                .onTapGesture {
+                    showFullMap = true
+                }
+
+                // Hint overlay
+                VStack {
+                    Spacer()
+                    Text("Tap to expand")
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(.black.opacity(0.6), in: Capsule())
+                        .padding(.bottom, 4)
                 }
             } else {
                 VStack(spacing: 8) {
@@ -251,6 +306,14 @@ struct WatchWorkModeView: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showFullMap) {
+            if let block = viewModel.block,
+               let routeData = block.routePointsEncoded,
+               let coordinates = decodeRoutePoints(routeData),
+               !coordinates.isEmpty {
+                FullRouteMapView(coordinates: coordinates)
             }
         }
     }
@@ -289,5 +352,120 @@ struct WatchWorkModeView: View {
         }
 
         return nil
+    }
+}
+
+// MARK: - Block Completion Summary
+
+struct WatchBlockCompletionSummary: View {
+    let snapshot: CompletedBlockSnapshot
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 10) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(.green)
+
+                Text("Block Complete")
+                    .font(.headline)
+
+                if !snapshot.timeRange.isEmpty {
+                    Text(snapshot.timeRange)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
+                summaryRow("Gross", WatchFormatters.currencyString(snapshot.grossPayout))
+                summaryRow("Miles", WatchFormatters.milesString(snapshot.totalMiles))
+                summaryRow("Deduction", "-\(WatchFormatters.currencyString(snapshot.mileageDeduction))", color: .orange)
+
+                Divider()
+
+                HStack {
+                    Text("Profit")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(WatchFormatters.currencyString(snapshot.totalProfit))
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundStyle(snapshot.totalProfit >= 0 ? .green : .red)
+                }
+
+                if snapshot.packageCount > 0 || snapshot.stopCount > 0 {
+                    Divider()
+                    HStack(spacing: 16) {
+                        if snapshot.packageCount > 0 {
+                            Label("\(snapshot.packageCount)", systemImage: "shippingbox.fill")
+                                .font(.caption)
+                        }
+                        if snapshot.stopCount > 0 {
+                            Label("\(snapshot.stopCount)", systemImage: "mappin.circle.fill")
+                                .font(.caption)
+                        }
+                    }
+                    .foregroundStyle(.secondary)
+                }
+
+                Button {
+                    onDismiss()
+                } label: {
+                    Text("Done")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.top, 4)
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    private func summaryRow(_ label: String, _ value: String, color: Color = .primary) -> some View {
+        HStack {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+        }
+    }
+}
+
+// MARK: - Full Interactive Map Sheet
+
+/// Full-screen interactive map presented as a sheet.
+/// Users can pan and zoom freely, then dismiss with the standard swipe-down gesture.
+struct FullRouteMapView: View {
+    let coordinates: [CLLocationCoordinate2D]
+
+    var body: some View {
+        Map {
+            MapPolyline(coordinates: coordinates)
+                .stroke(.blue, lineWidth: 3)
+            if let first = coordinates.first {
+                Annotation("Start", coordinate: first) {
+                    Circle()
+                        .fill(.green)
+                        .frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(.white, lineWidth: 2))
+                }
+            }
+            if let last = coordinates.last {
+                Annotation("Current", coordinate: last) {
+                    Circle()
+                        .fill(.blue)
+                        .frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(.white, lineWidth: 2))
+                }
+            }
+        }
+        .edgesIgnoringSafeArea(.all)
     }
 }

@@ -500,6 +500,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
         block.recordAuditEntry(action: .updated, field: "userCompletionTime", newValue: auditDateString(Date()), note: "Completed via CarPlay")
         block.userCompletionTime = Date()
         block.status = .completed
+        NotificationManager.shared.cancelNonTipReminders(for: block.id)
         block.recordAuditEntry(action: .statusChanged, field: "status", newValue: BlockStatus.completed.displayName)
         try? context.save()
         DispatchQueue.main.async {

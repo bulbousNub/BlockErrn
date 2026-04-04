@@ -599,6 +599,7 @@ struct BlockDetailView: View {
     private func markBlockCompleted() {
         guard block.status != .completed else { return }
         block.status = .completed
+        NotificationManager.shared.cancelNonTipReminders(for: block.id)
         log(AuditAction.statusChanged)
         touch()
     }
