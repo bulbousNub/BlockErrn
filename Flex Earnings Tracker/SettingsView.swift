@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import SafariServices
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
@@ -8,6 +9,7 @@ struct SettingsView: View {
     @State private var selectedAppearance: AppearancePreference = .system
     @State private var mileageSavedMessage: String?
     @State private var showExpenseCategoryEditor: Bool = false
+    @State private var showGitHub: Bool = false
     @State private var reminderBeforeStartMinutes: Int = 45
     @State private var reminderBeforeEndMinutes: Int = 15
     @State private var tipReminderHours: Int = 24
@@ -113,6 +115,27 @@ struct SettingsView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+
+                                Button {
+                                    showGitHub = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "cat.fill")
+                                        Text("GitHub")
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Image(systemName: "arrow.up.right")
+                                    }
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .fill(Color(.secondarySystemBackground))
+                                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
 
@@ -148,6 +171,10 @@ struct SettingsView: View {
                 } else {
                     Text("No settings available.")
                 }
+            }
+            .sheet(isPresented: $showGitHub) {
+                SafariView(url: URL(string: "https://github.com/bulbousNub/BlockErrn/")!)
+                    .ignoresSafeArea()
             }
             .onAppear { loadSettings() }
             .task(id: settings.first?.id) { loadSettings() }
@@ -497,4 +524,14 @@ private struct ExpenseCategoryEditor: View {
         appSettings.expenseCategoryDescriptors = descriptors
         dismiss()
     }
+}
+
+private struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        SFSafariViewController(url: url)
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
