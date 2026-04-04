@@ -210,6 +210,7 @@ struct LogView: View {
     private func complete(_ block: Block) {
         guard block.status != .completed else { return }
         block.status = .completed
+        NotificationManager.shared.cancelNonTipReminders(for: block.id)
         logStatusChange(for: block, note: "Marked completed from log.")
         block.updatedAt = Date()
         try? context.save()

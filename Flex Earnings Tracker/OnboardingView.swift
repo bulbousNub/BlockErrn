@@ -3,6 +3,7 @@ import SwiftData
 import CoreLocation
 import CoreMotion
 import UIKit
+import UniformTypeIdentifiers
 
 struct OnboardingView: View {
     @EnvironmentObject private var mileageTracker: MileageTracker
@@ -14,8 +15,14 @@ struct OnboardingView: View {
     @State private var notificationPermissionGranted = false
     @State private var currentStep: Int = 0
     @State private var motionPermissionGranted = CMMotionActivityManager.authorizationStatus() == .authorized
+    @State private var showLocalFileImporter = false
+    @State private var restoreMessage: String?
+    @State private var restoreMessageStyle: DataMessageStyle = .info
+    @State private var iCloudBackupExists = false
+    @State private var iCloudBackupDate: Date?
+    @ObservedObject private var iCloudManager = ICloudBackupManager.shared
 
-    private let steps = 5
+    private let steps = 6
 
     var body: some View {
         ZStack {
@@ -54,8 +61,8 @@ struct OnboardingView: View {
             .padding()
         }
         .onChange(of: notificationPermissionGranted) { granted in
-            if granted && currentStep == 1 {
-                currentStep = 2
+            if granted && currentStep == 3 {
+                currentStep = 4
             }
         }
         .onChange(of: motionPermissionGranted) { granted in
@@ -67,9 +74,22 @@ struct OnboardingView: View {
             motionPermissionGranted = (status == .authorized)
         }
         .onReceive(mileageTracker.$authorizationStatus) { status in
-            if status == .authorizedAlways && currentStep == 3 {
-                currentStep = 4
+            if status == .authorizedAlways && currentStep == 4 {
+                currentStep = 5
             }
+        }
+        .onAppear {
+            ICloudBackupManager.shared.hasICloudBackup { exists, date in
+                iCloudBackupExists = exists
+                iCloudBackupDate = date
+            }
+        }
+        .fileImporter(
+            isPresented: $showLocalFileImporter,
+            allowedContentTypes: [.json, .zip],
+            allowsMultipleSelection: false
+        ) { result in
+            handleOnboardingLocalImport(result)
         }
     }
 
@@ -196,16 +216,227 @@ struct OnboardingView: View {
         case 0:
             brandingStep
         case 1:
-            introStep
+            restoreStep
         case 2:
-            notificationStep
+            introStep
         case 3:
-            locationStep
+            notificationStep
         case 4:
+            locationStep
+        case 5:
             motionStep
         default:
             motionStep
         }
+    }
+
+    private var restoreStep: some View {
+        VStack(spacing: 12) {
+            iconBadge("arrow.down.doc.fill")
+            Text("Restore a backup?")
+                .font(.title2)
+                .bold()
+                .foregroundColor(.primary)
+            Text("If you've used BlockErrn before, you can restore your data from an iCloud or local backup.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            if iCloudBackupExists {
+                Button(action: restoreFromICloud) {
+                    Label(
+                        iCloudManager.isDownloading ? "Downloading..." : "Restore from iCloud",
+                        systemImage: "icloud.and.arrow.down"
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.systemBlue))
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                }
+                .disabled(iCloudManager.isDownloading)
+                if let date = iCloudBackupDate {
+                    Text("iCloud backup from \(Self.onboardingDateFormatter.string(from: date))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "icloud.slash")
+                        .foregroundStyle(.secondary)
+                    Text("No iCloud backup found")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Button(action: { showLocalFileImporter = true }) {
+                Label("Restore from File", systemImage: "doc.zipper")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .foregroundColor(.primary)
+                    .cornerRadius(12)
+            }
+
+            if let message = restoreMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(restoreMessageStyle.color)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text("You can skip this step if you're starting fresh.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    private static let onboardingDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f
+    }()
+
+    private func restoreFromICloud() {
+        restoreMessage = nil
+        iCloudManager.downloadBackup { result in
+            switch result {
+            case .success(let data):
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+                    let payload = try decoder.decode(ICloudBackupPayload.self, from: data)
+                    try importOnboardingBackup(payload)
+                    iCloudManager.isEnabled = true
+                    restoreMessage = "Restore complete! Your data has been imported."
+                    restoreMessageStyle = .success
+                } catch {
+                    restoreMessage = "Restore failed: \(error.localizedDescription)"
+                    restoreMessageStyle = .error
+                }
+            case .failure(let error):
+                restoreMessage = "Restore failed: \(error.localizedDescription)"
+                restoreMessageStyle = .error
+            }
+        }
+    }
+
+    private func handleOnboardingLocalImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            do {
+                let shouldStop = url.startAccessingSecurityScopedResource()
+                defer {
+                    if shouldStop { url.stopAccessingSecurityScopedResource() }
+                }
+                let data: Data
+                if url.pathExtension.lowercased() == "zip" {
+                    guard let archive = Archive(url: url, accessMode: .read),
+                          let entry = archive["BlockErrnBackup.json"] else {
+                        throw CocoaError(.fileReadCorruptFile)
+                    }
+                    var zipData = Data()
+                    _ = try archive.extract(entry) { chunk in zipData.append(chunk) }
+                    data = zipData
+                } else {
+                    data = try Data(contentsOf: url)
+                }
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                let payload = try decoder.decode(ICloudBackupPayload.self, from: data)
+                try importOnboardingBackup(payload)
+                restoreMessage = "Restored from \(url.lastPathComponent)"
+                restoreMessageStyle = .success
+            } catch {
+                restoreMessage = "Import failed: \(error.localizedDescription)"
+                restoreMessageStyle = .error
+            }
+        case .failure(let error):
+            restoreMessage = "Import cancelled: \(error.localizedDescription)"
+            restoreMessageStyle = .info
+        }
+    }
+
+    private func importOnboardingBackup(_ payload: ICloudBackupPayload) throws {
+        for blockPayload in payload.blocks {
+            let block = Block(
+                id: blockPayload.id,
+                date: blockPayload.date,
+                durationMinutes: blockPayload.durationMinutes,
+                grossBase: blockPayload.grossBase,
+                hasTips: blockPayload.hasTips,
+                tipsAmount: blockPayload.tipsAmount,
+                miles: blockPayload.miles,
+                irsRateSnapshot: blockPayload.irsRateSnapshot,
+                status: BlockStatus(rawValue: blockPayload.statusRaw) ?? .accepted,
+                expenses: [],
+                auditEntries: [],
+                notes: blockPayload.notes,
+                createdAt: blockPayload.createdAt,
+                updatedAt: blockPayload.updatedAt,
+                startTime: blockPayload.startTime,
+                endTime: blockPayload.endTime,
+                userStartTime: blockPayload.userStartTime,
+                userCompletionTime: blockPayload.userCompletionTime,
+                packageCount: blockPayload.packageCount,
+                stopCount: blockPayload.stopCount
+            )
+            block.routePoints = blockPayload.routePoints
+
+            for expensePayload in blockPayload.expenses {
+                let expense = Expense(
+                    id: expensePayload.id,
+                    categoryRaw: expensePayload.categoryRaw,
+                    amount: expensePayload.amount,
+                    note: expensePayload.note,
+                    createdAt: expensePayload.createdAt,
+                    updatedAt: expensePayload.updatedAt
+                )
+                if let receiptData = expensePayload.receiptData {
+                    let savedFile = ReceiptStorage.save(data: receiptData, fileName: expensePayload.receiptFileName)
+                    expense.receiptFileName = savedFile
+                }
+                block.expenses.append(expense)
+            }
+
+            for auditPayload in blockPayload.auditEntries {
+                let action = AuditAction(rawValue: auditPayload.action) ?? .updated
+                let entry = AuditEntry(
+                    id: auditPayload.id,
+                    timestamp: auditPayload.timestamp,
+                    action: action,
+                    field: auditPayload.field,
+                    oldValue: auditPayload.oldValue,
+                    newValue: auditPayload.newValue,
+                    note: auditPayload.note
+                )
+                block.auditEntries.append(entry)
+            }
+            context.insert(block)
+        }
+
+        // Restore settings if this is a fresh install
+        for settingPayload in payload.settings {
+            appSettings.irsMileageRate = settingPayload.irsMileageRate
+            appSettings.currencyCode = settingPayload.currencyCode
+            appSettings.roundingScale = settingPayload.roundingScale
+            appSettings.preferredAppearanceRaw = settingPayload.preferredAppearanceRaw
+            appSettings.includePreReminder = settingPayload.includePreReminder ?? true
+            appSettings.hasDismissedPlanCard = settingPayload.hasDismissedPlanCard ?? false
+            appSettings.reminderBeforeStartMinutes = settingPayload.reminderBeforeStartMinutes ?? 45
+            appSettings.reminderBeforeEndMinutes = settingPayload.reminderBeforeEndMinutes ?? 15
+            appSettings.tipReminderHours = settingPayload.tipReminderHours ?? 24
+            if let categories = settingPayload.expenseCategoryDescriptors {
+                appSettings.expenseCategoryDescriptors = categories
+            }
+        }
+
+        try context.save()
     }
 
     private func iconBadge(_ name: String) -> some View {

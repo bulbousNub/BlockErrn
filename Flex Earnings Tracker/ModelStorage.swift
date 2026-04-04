@@ -13,7 +13,9 @@ final class ModelStorage {
     let container: ModelContainer
 
     private init() throws {
-        container = try ModelContainer(for: Block.self, Expense.self, AuditEntry.self, AppSettings.self)
+        let schema = Schema([Block.self, Expense.self, AuditEntry.self, AppSettings.self])
+        let config = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
+        container = try ModelContainer(for: schema, configurations: [config])
     }
 
     var context: ModelContext {

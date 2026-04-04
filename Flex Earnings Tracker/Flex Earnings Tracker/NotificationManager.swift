@@ -79,6 +79,13 @@ final class NotificationManager {
         center.removePendingNotificationRequests(withIdentifiers: identifiers.allIdentifiers)
     }
 
+    /// Cancels start, pre-end, and end reminders but preserves the tip reminder.
+    /// Call this when a block is marked as completed.
+    func cancelNonTipReminders(for blockID: UUID) {
+        let ids = identifiers(for: blockID)
+        center.removePendingNotificationRequests(withIdentifiers: [ids.start, ids.preEnd, ids.end])
+    }
+
     struct ReminderConfiguration {
         let startMinutes: Int
         let preEndMinutes: Int

@@ -5,10 +5,12 @@ import UIKit
 @main
 struct BlockErrnApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
     private let container = ModelStorage.shared.container
 
     init() {
         _ = ModelStorage.shared
+        PhoneWatchSessionManager.shared.activateSession()
     }
 
     var body: some Scene {
@@ -16,6 +18,11 @@ struct BlockErrnApp: App {
             Bootstrapper()
         }
         .modelContainer(container)
+        .onChange(of: scenePhase) {
+            if scenePhase == .background {
+                ICloudAutoBackup.performIfEnabled(container: container)
+            }
+        }
     }
 }
 
