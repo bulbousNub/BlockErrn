@@ -85,6 +85,7 @@ struct DataView: View {
     @Environment(\.modelContext) private var context
     @Query private var settings: [AppSettings]
     @Query private var blocks: [Block]
+    @ObservedObject private var iCloudManager = ICloudBackupManager.shared
 
     @State private var shareableBackup: ShareableBackup?
     @State private var showCSVExporter: Bool = false
@@ -165,18 +166,19 @@ struct DataView: View {
                     .foregroundColor(.accentColor)
             }
 
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Last backup")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                    Text(backupTimestampText)
-                        .font(.headline)
-                        .foregroundColor(backupStatusColor)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Last backup")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        backupRow(label: "Local", date: lastBackupDate)
+                        backupRow(label: "iCloud", date: iCloudManager.lastBackupDate)
+                    }
+                    Spacer()
+                    backupFormatToggle
                 }
-                Spacer()
-                backupFormatToggle
             }
             Button {
                 backupData()
@@ -199,6 +201,26 @@ struct DataView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            NavigationLink {
+                ICloudBackupView()
+            } label: {
+                HStack {
+                    Image(systemName: "icloud")
+                    Text("iCloud Backup")
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                }
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color(.secondarySystemBackground))
+                        .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                )
+            }
+            .buttonStyle(.plain)
             }
             .flexErrnCardStyle()
     }
@@ -357,10 +379,21 @@ struct DataView: View {
             recordBackupDate(now)
             backupMessage = "Backup ready"
             backupMessageStyle = .success
+            // Mirror to iCloud if enabled
+            triggerICloudBackup()
         } catch {
             backupMessage = "Backup failed: \(error.localizedDescription)"
             backupMessageStyle = .error
         }
+    }
+
+    private func triggerICloudBackup() {
+        guard iCloudManager.isEnabled else { return }
+        let payload = makeBackupPayload()
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(payload) else { return }
+        iCloudManager.uploadBackup(jsonData: data)
     }
 
     private func loadLastBackupDate() {
@@ -386,21 +419,41 @@ struct DataView: View {
         UserDefaults.standard.set(date, forKey: Self.lastBackupKey)
     }
 
-    private var backupTimestampText: String {
-        guard let date = lastBackupDate else { return "No backups yet" }
-        return Self.backupDateFormatter.string(from: date)
+    private func backupRow(label: String, date: Date?) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: label == "iCloud" ? "icloud.fill" : "internaldrive.fill")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let date {
+                Text(Self.backupDateFormatter.string(from: date))
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Self.colorForBackupAge(date))
+            } else {
+                Text("Never")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.red)
+            }
+        }
     }
 
     private var backupStatusColor: Color {
-        guard let date = lastBackupDate else { return .red }
+        let localDate = lastBackupDate
+        let iCloudDate = iCloudManager.lastBackupDate
+        let mostRecent = [localDate, iCloudDate].compactMap { $0 }.max()
+        guard let date = mostRecent else { return .red }
+        return Self.colorForBackupAge(date)
+    }
+
+    private static func colorForBackupAge(_ date: Date) -> Color {
         let age = Date().timeIntervalSince(date)
         let day = TimeInterval(24 * 60 * 60)
-        if age <= 6 * day {
-            return .green
-        }
-        if age <= 13 * day {
-            return Color.yellow
-        }
+        if age <= 6 * day { return .green }
+        if age <= 13 * day { return .yellow }
         return .red
     }
 

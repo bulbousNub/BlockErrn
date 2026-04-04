@@ -18,6 +18,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
     private var activeWorkModeTemplate: CPInformationTemplate?
     private var activeDetailTemplate: CPInformationTemplate?
     private var detailBlockID: UUID?
+    private var activeDashboardTab: CPTabBarTemplate?
 
     @objc(templateApplicationScene:didConnectInterfaceController:)
     public dynamic func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene, didConnect interfaceController: CPInterfaceController) {
@@ -48,6 +49,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
         workModeBlockID = nil
         activeWorkModeTemplate = nil
         activeDetailTemplate = nil
+        activeDashboardTab = nil
         mapHost.clearRoute()
     }
 
@@ -107,7 +109,21 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
         let blocks = fetchBlocks()
         let forcedIDs = WorkModeCoordinator.shared.forcedActiveBlockIDs
         let catalog = BlockCatalog(blocks: blocks, now: Date(), forcedActiveIDs: forcedIDs)
+
+        // Update existing tab contents in-place to avoid resetting the
+        // selected tab and causing a visible "bounce" on CarPlay.
+        if let existingTab = activeDashboardTab,
+           let templates = existingTab.templates as? [CPListTemplate],
+           templates.count == 2 {
+            let activeSection = makeListSection(for: catalog.activeBlocks, title: "Active", isActive: true)
+            let upcomingSection = makeListSection(for: catalog.upcomingBlocks, title: "Upcoming", isActive: false)
+            templates[0].updateSections([activeSection])
+            templates[1].updateSections([upcomingSection])
+            return
+        }
+
         let dashboard = makeDashboardTemplate(active: catalog.activeBlocks, upcoming: catalog.upcomingBlocks)
+        activeDashboardTab = dashboard
         interfaceController.setRootTemplate(dashboard, animated: true, completion: nil)
     }
 
@@ -127,9 +143,8 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
         }
 
         if let blockID = workModeBlockID, let block = fetchBlock(by: blockID) {
-            // If the block was completed from the iOS app (or tracking stopped),
-            // exit work mode and return to the dashboard.
-            if block.status == .completed || (!mileageTracker.isTracking && mileageTracker.currentBlockID != blockID) {
+            // If the block was completed (from iOS or CarPlay), exit work mode.
+            if block.status == .completed {
                 workModeBlockID = nil
                 activeWorkModeTemplate = nil
                 mapHost.clearRoute()
@@ -138,6 +153,8 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
             }
             if let existing = activeWorkModeTemplate {
                 existing.items = makeWorkModeItems(for: block)
+                existing.actions = makeWorkModeActions(for: block)
+                updateWorkModeGPSIndicator(on: existing)
             } else {
                 let workTemplate = makeWorkModeTemplate(for: block)
                 interfaceController.setRootTemplate(workTemplate, animated: true, completion: nil)
@@ -259,6 +276,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
             return
         }
 
+        activeDashboardTab = nil
         isShowingActiveBlockDetail = true
         detailBlockID = block.id
         let detailTemplate = makeActiveBlockDetailTemplate(for: block)
@@ -332,6 +350,7 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
 
     private func showWorkMode(for block: Block) {
         guard let interfaceController else { return }
+        activeDashboardTab = nil
         mapHost.updateRoute(block.routeSegments ?? [])
         carWindow?.rootViewController = mapHost
         let workTemplate = makeWorkModeTemplate(for: block)
@@ -341,24 +360,85 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
 
     private func makeWorkModeTemplate(for block: Block) -> CPInformationTemplate {
         let items = makeWorkModeItems(for: block)
-
-        let stopButton = CPTextButton(title: "Stop Block", textStyle: .cancel) { [weak self] _ in
-            self?.stopBlock(block)
-        }
+        let actions = makeWorkModeActions(for: block)
 
         let template = CPInformationTemplate(
             title: "BlockErrn - Work Mode",
             layout: .twoColumn,
             items: items,
-            actions: [stopButton]
+            actions: actions
         )
 
-        if let locationImage = UIImage(systemName: "location.fill")?.withTintColor(.systemBlue, renderingMode: .alwaysOriginal) {
-            let gpsIndicator = CPBarButton(image: locationImage) { _ in }
-            template.trailingNavigationBarButtons = [gpsIndicator]
-        }
+        updateWorkModeGPSIndicator(on: template)
 
         return template
+    }
+
+    private func makeWorkModeActions(for block: Block) -> [CPTextButton] {
+        let isCurrentlyTracking = mileageTracker.isTracking && mileageTracker.currentBlockID == block.id
+
+        let trackingButton: CPTextButton
+        if isCurrentlyTracking {
+            trackingButton = CPTextButton(title: "Stop Tracking", textStyle: .normal) { [weak self] _ in
+                self?.handleStopTracking(block: block)
+            }
+        } else {
+            trackingButton = CPTextButton(title: "Start Tracking", textStyle: .confirm) { [weak self] _ in
+                self?.handleStartTracking(block: block)
+            }
+        }
+
+        let completeBlockButton = CPTextButton(title: "End Block", textStyle: .cancel) { [weak self] _ in
+            self?.confirmCompleteBlock(block)
+        }
+
+        return [trackingButton, completeBlockButton]
+    }
+
+    private func updateWorkModeGPSIndicator(on template: CPInformationTemplate) {
+        let isTracking = mileageTracker.isTracking && mileageTracker.currentBlockID == workModeBlockID
+        let iconName = isTracking ? "location.fill" : "location.slash"
+        let tintColor: UIColor = isTracking ? .systemBlue : .systemGray
+        if let image = UIImage(systemName: iconName)?.withTintColor(tintColor, renderingMode: .alwaysOriginal) {
+            let gpsIndicator = CPBarButton(image: image) { _ in }
+            template.trailingNavigationBarButtons = [gpsIndicator]
+        }
+    }
+
+    private func handleStopTracking(block: Block) {
+        guard workModeBlockID == block.id else { return }
+        if let (sessionMiles, routePoints) = mileageTracker.stopTracking(for: block.id) {
+            let oldMiles = block.miles
+            block.miles += Decimal(sessionMiles)
+            block.appendRouteSegment(routePoints)
+            block.recordAuditEntry(
+                action: .milesUpdated,
+                field: "miles",
+                oldValue: auditDecimalString(oldMiles),
+                newValue: auditDecimalString(block.miles),
+                note: "Tracking paused via CarPlay"
+            )
+            block.updatedAt = Date()
+            try? context.save()
+            LiveActivityManager.shared.updateMiles(NSDecimalNumber(decimal: block.miles).doubleValue)
+        }
+        // Rebuild the work mode template to swap tracking button state
+        rebuildWorkModeTemplate(for: block)
+    }
+
+    private func handleStartTracking(block: Block) {
+        guard workModeBlockID == block.id else { return }
+        mileageTracker.requestAuthorization()
+        mileageTracker.startTracking(for: block.id)
+        // Rebuild the work mode template to swap tracking button state
+        rebuildWorkModeTemplate(for: block)
+    }
+
+    private func rebuildWorkModeTemplate(for block: Block) {
+        guard let interfaceController else { return }
+        let workTemplate = makeWorkModeTemplate(for: block)
+        activeWorkModeTemplate = workTemplate
+        interfaceController.setRootTemplate(workTemplate, animated: false, completion: nil)
     }
 
     private func makeWorkModeItems(for block: Block) -> [CPInformationItem] {
@@ -391,6 +471,22 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
     private func liveProfit(for block: Block) -> Decimal {
         let mileageCost = block.shouldIncludeMileageDeduction ? liveMileageDeduction(for: block) : 0
         return block.grossPayout - mileageCost - block.effectiveExpensesDeduction
+    }
+
+    private func confirmCompleteBlock(_ block: Block) {
+        guard let interfaceController else { return }
+        let confirmAction = CPAlertAction(title: "Complete Block", style: .destructive) { [weak self] _ in
+            self?.interfaceController?.dismissTemplate(animated: true, completion: nil)
+            self?.stopBlock(block)
+        }
+        let cancelAction = CPAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+            self?.interfaceController?.dismissTemplate(animated: true, completion: nil)
+        }
+        let alert = CPAlertTemplate(
+            titleVariants: ["Stop GPS & complete this block?"],
+            actions: [confirmAction, cancelAction]
+        )
+        interfaceController.presentTemplate(alert, animated: true, completion: nil)
     }
 
     private func stopBlock(_ block: Block) {
