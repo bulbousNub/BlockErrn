@@ -29,6 +29,8 @@ struct WatchWorkModeView: View {
                 WatchBlockCompletionSummary(snapshot: snapshot) {
                     showSummary = false
                     completedSnapshot = nil
+                    showCompleteConfirmation = false
+                    sessionManager.workModeBlockID = nil
                     dismiss()
                 }
             } else {

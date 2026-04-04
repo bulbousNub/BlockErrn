@@ -89,7 +89,7 @@ struct SettingsView: View {
 
                         SectionCard(title: "About BlockErrn") {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("A pocket-friendly ride-by-ride calculator with configurable themes, expense categories, and protected backups.")
+                                Text("Block-by-block earnings tracker for gig delivery drivers. Track mileage, expenses, and profit across iPhone, Apple Watch, and CarPlay.")
                                     .font(.subheadline)
                                     .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -275,28 +275,48 @@ struct SettingsView: View {
 private struct LicensesView: View {
     private let licenseEntries: [LicenseEntry] = [
         LicenseEntry(
+            title: "BlockErrn",
+            subtitle: "Apache License 2.0",
+            licenseText:
+                """
+                Copyright 2025 TeJay Guilliams
+
+                Licensed under the Apache License, Version 2.0 (the "License"); \
+                you may not use this file except in compliance with the License. \
+                You may obtain a copy of the License at
+
+                    http://www.apache.org/licenses/LICENSE-2.0
+
+                Unless required by applicable law or agreed to in writing, software \
+                distributed under the License is distributed on an "AS IS" BASIS, \
+                WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. \
+                See the License for the specific language governing permissions and \
+                limitations under the License.
+                """
+        ),
+        LicenseEntry(
             title: "ZIPFoundation",
             subtitle: "MIT License",
             licenseText:
                 """
                 Copyright (c) 2017-2025 Thomas Zoechling (https://www.peakstep.com)
 
-                Permission is hereby granted, free of charge, to any person obtaining a copy
-                of this software and associated documentation files (the \"Software\"), to deal
-                in the Software without restriction, including without limitation the rights
-                to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-                copies of the Software, and to permit persons to whom the Software is
+                Permission is hereby granted, free of charge, to any person obtaining a copy \
+                of this software and associated documentation files (the \"Software\"), to deal \
+                in the Software without restriction, including without limitation the rights \
+                to use, copy, modify, merge, publish, distribute, sublicense, and/or sell \
+                copies of the Software, and to permit persons to whom the Software is \
                 furnished to do so, subject to the following conditions:
 
-                The above copyright notice and this permission notice shall be included in all
+                The above copyright notice and this permission notice shall be included in all \
                 copies or substantial portions of the Software.
 
-                THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-                IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-                FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-                AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-                LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-                OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+                THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR \
+                IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, \
+                FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE \
+                AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER \
+                LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, \
+                OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE \
                 SOFTWARE.
                 """
         )
@@ -318,6 +338,13 @@ private struct LicensesView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
+                    }
+
+                    SectionCard(title: "Disclaimer") {
+                        Text("BlockErrn is an independent project and is not affiliated with, endorsed by, or sponsored by Amazon.com, Inc. or any of its subsidiaries, including Amazon Flex.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding()
