@@ -10,6 +10,7 @@
 		D16BD4BD2F805159003B8986 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D16BD4BC2F805159003B8986 /* WidgetKit.framework */; };
 		D16BD4BF2F805159003B8986 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D16BD4BE2F805159003B8986 /* SwiftUI.framework */; };
 		D16BD4D02F80515A003B8986 /* BlockErrnWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D16BD4BA2F805159003B8986 /* BlockErrnWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D1838E4D2F80A7C5000D1A1D /* BlockErrn Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = D16BD6CB2F8099CB003B8986 /* BlockErrn Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -19,6 +20,34 @@
 			proxyType = 1;
 			remoteGlobalIDString = D16BD4B92F805159003B8986;
 			remoteInfo = BlockErrnWidgetsExtension;
+		};
+		D16BD6D82F8099CC003B8986 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D196310A2F72C37700766B99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D16BD6CA2F8099CB003B8986;
+			remoteInfo = "BlockErrn Watch App";
+		};
+		D16BD6E22F8099CC003B8986 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D196310A2F72C37700766B99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D16BD6CA2F8099CB003B8986;
+			remoteInfo = "BlockErrn Watch App";
+		};
+		D1838E482F80A411000D1A1D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D196310A2F72C37700766B99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D16BD6CA2F8099CB003B8986;
+			remoteInfo = "BlockErrn Watch App";
+		};
+		D1838E4B2F80A417000D1A1D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D196310A2F72C37700766B99 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D16BD6CA2F8099CB003B8986;
+			remoteInfo = "BlockErrn Watch App";
 		};
 		D19631202F72C37800766B99 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -48,12 +77,26 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D1838E4A2F80A411000D1A1D /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				D1838E4D2F80A7C5000D1A1D /* BlockErrn Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		D16BD4BA2F805159003B8986 /* BlockErrnWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BlockErrnWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D16BD4BC2F805159003B8986 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		D16BD4BE2F805159003B8986 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		D16BD6CB2F8099CB003B8986 /* BlockErrn Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "BlockErrn Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D16BD6D72F8099CC003B8986 /* BlockErrn Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "BlockErrn Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D16BD6E12F8099CC003B8986 /* BlockErrn Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "BlockErrn Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D19631122F72C37700766B99 /* BlockErrn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BlockErrn.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D196311F2F72C37800766B99 /* BlockErrnTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlockErrnTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D19631292F72C37800766B99 /* BlockErrnUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlockErrnUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -94,6 +137,21 @@
 			path = BlockErrnWidgets;
 			sourceTree = "<group>";
 		};
+		D16BD6CC2F8099CB003B8986 /* BlockErrn Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "BlockErrn Watch App";
+			sourceTree = "<group>";
+		};
+		D16BD6DA2F8099CC003B8986 /* BlockErrn Watch AppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "BlockErrn Watch AppTests";
+			sourceTree = "<group>";
+		};
+		D16BD6E42F8099CC003B8986 /* BlockErrn Watch AppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "BlockErrn Watch AppUITests";
+			sourceTree = "<group>";
+		};
 		D19631142F72C37700766B99 /* Flex Earnings Tracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -121,6 +179,27 @@
 			files = (
 				D16BD4BF2F805159003B8986 /* SwiftUI.framework in Frameworks */,
 				D16BD4BD2F805159003B8986 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D16BD6C82F8099CB003B8986 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D16BD6D42F8099CC003B8986 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D16BD6DE2F8099CC003B8986 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -172,6 +251,9 @@
 				D19631222F72C37800766B99 /* Flex Earnings TrackerTests */,
 				D196312C2F72C37800766B99 /* Flex Earnings TrackerUITests */,
 				D16BD4C02F805159003B8986 /* BlockErrnWidgets */,
+				D16BD6CC2F8099CB003B8986 /* BlockErrn Watch App */,
+				D16BD6DA2F8099CC003B8986 /* BlockErrn Watch AppTests */,
+				D16BD6E42F8099CC003B8986 /* BlockErrn Watch AppUITests */,
 				D16BD4BB2F805159003B8986 /* Frameworks */,
 				D19631132F72C37700766B99 /* Products */,
 				D16BD4B32F80501F003B8986 /* BlockErrnWidgets */,
@@ -185,6 +267,9 @@
 				D196311F2F72C37800766B99 /* BlockErrnTests.xctest */,
 				D19631292F72C37800766B99 /* BlockErrnUITests.xctest */,
 				D16BD4BA2F805159003B8986 /* BlockErrnWidgetsExtension.appex */,
+				D16BD6CB2F8099CB003B8986 /* BlockErrn Watch App.app */,
+				D16BD6D72F8099CC003B8986 /* BlockErrn Watch AppTests.xctest */,
+				D16BD6E12F8099CC003B8986 /* BlockErrn Watch AppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -214,6 +299,74 @@
 			productReference = D16BD4BA2F805159003B8986 /* BlockErrnWidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		D16BD6CA2F8099CB003B8986 /* BlockErrn Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D16BD6E92F8099CC003B8986 /* Build configuration list for PBXNativeTarget "BlockErrn Watch App" */;
+			buildPhases = (
+				D16BD6C72F8099CB003B8986 /* Sources */,
+				D16BD6C82F8099CB003B8986 /* Frameworks */,
+				D16BD6C92F8099CB003B8986 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D16BD6CC2F8099CB003B8986 /* BlockErrn Watch App */,
+			);
+			name = "BlockErrn Watch App";
+			packageProductDependencies = (
+			);
+			productName = "BlockErrn Watch App";
+			productReference = D16BD6CB2F8099CB003B8986 /* BlockErrn Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D16BD6D62F8099CC003B8986 /* BlockErrn Watch AppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D16BD6EC2F8099CC003B8986 /* Build configuration list for PBXNativeTarget "BlockErrn Watch AppTests" */;
+			buildPhases = (
+				D16BD6D32F8099CC003B8986 /* Sources */,
+				D16BD6D42F8099CC003B8986 /* Frameworks */,
+				D16BD6D52F8099CC003B8986 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D16BD6D92F8099CC003B8986 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D16BD6DA2F8099CC003B8986 /* BlockErrn Watch AppTests */,
+			);
+			name = "BlockErrn Watch AppTests";
+			packageProductDependencies = (
+			);
+			productName = "BlockErrn Watch AppTests";
+			productReference = D16BD6D72F8099CC003B8986 /* BlockErrn Watch AppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		D16BD6E02F8099CC003B8986 /* BlockErrn Watch AppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D16BD6EF2F8099CC003B8986 /* Build configuration list for PBXNativeTarget "BlockErrn Watch AppUITests" */;
+			buildPhases = (
+				D16BD6DD2F8099CC003B8986 /* Sources */,
+				D16BD6DE2F8099CC003B8986 /* Frameworks */,
+				D16BD6DF2F8099CC003B8986 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D16BD6E32F8099CC003B8986 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D16BD6E42F8099CC003B8986 /* BlockErrn Watch AppUITests */,
+			);
+			name = "BlockErrn Watch AppUITests";
+			packageProductDependencies = (
+			);
+			productName = "BlockErrn Watch AppUITests";
+			productReference = D16BD6E12F8099CC003B8986 /* BlockErrn Watch AppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		D19631112F72C37700766B99 /* BlockErrn */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D19631332F72C37800766B99 /* Build configuration list for PBXNativeTarget "BlockErrn" */;
@@ -222,11 +375,14 @@
 				D196310F2F72C37700766B99 /* Frameworks */,
 				D19631102F72C37700766B99 /* Resources */,
 				D16BD4D52F80515A003B8986 /* Embed Foundation Extensions */,
+				D1838E4A2F80A411000D1A1D /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				D16BD4CF2F80515A003B8986 /* PBXTargetDependency */,
+				D1838E492F80A411000D1A1D /* PBXTargetDependency */,
+				D1838E4C2F80A417000D1A1D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				D19631142F72C37700766B99 /* Flex Earnings Tracker */,
@@ -297,6 +453,17 @@
 					D16BD4B92F805159003B8986 = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					D16BD6CA2F8099CB003B8986 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					D16BD6D62F8099CC003B8986 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = D16BD6CA2F8099CB003B8986;
+					};
+					D16BD6E02F8099CC003B8986 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = D16BD6CA2F8099CB003B8986;
+					};
 					D19631112F72C37700766B99 = {
 						CreatedOnToolsVersion = 26.3;
 					};
@@ -328,12 +495,36 @@
 				D196311E2F72C37800766B99 /* BlockErrnTests */,
 				D19631282F72C37800766B99 /* BlockErrnUITests */,
 				D16BD4B92F805159003B8986 /* BlockErrnWidgetsExtension */,
+				D16BD6CA2F8099CB003B8986 /* BlockErrn Watch App */,
+				D16BD6D62F8099CC003B8986 /* BlockErrn Watch AppTests */,
+				D16BD6E02F8099CC003B8986 /* BlockErrn Watch AppUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		D16BD4B82F805159003B8986 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D16BD6C92F8099CB003B8986 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D16BD6D52F8099CC003B8986 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D16BD6DF2F8099CC003B8986 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -371,6 +562,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D16BD6C72F8099CB003B8986 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D16BD6D32F8099CC003B8986 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D16BD6DD2F8099CC003B8986 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D196310E2F72C37700766B99 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -399,6 +611,26 @@
 			isa = PBXTargetDependency;
 			target = D16BD4B92F805159003B8986 /* BlockErrnWidgetsExtension */;
 			targetProxy = D16BD4CE2F80515A003B8986 /* PBXContainerItemProxy */;
+		};
+		D16BD6D92F8099CC003B8986 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D16BD6CA2F8099CB003B8986 /* BlockErrn Watch App */;
+			targetProxy = D16BD6D82F8099CC003B8986 /* PBXContainerItemProxy */;
+		};
+		D16BD6E32F8099CC003B8986 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D16BD6CA2F8099CB003B8986 /* BlockErrn Watch App */;
+			targetProxy = D16BD6E22F8099CC003B8986 /* PBXContainerItemProxy */;
+		};
+		D1838E492F80A411000D1A1D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D16BD6CA2F8099CB003B8986 /* BlockErrn Watch App */;
+			targetProxy = D1838E482F80A411000D1A1D /* PBXContainerItemProxy */;
+		};
+		D1838E4C2F80A417000D1A1D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D16BD6CA2F8099CB003B8986 /* BlockErrn Watch App */;
+			targetProxy = D1838E4B2F80A417000D1A1D /* PBXContainerItemProxy */;
 		};
 		D19631212F72C37800766B99 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -472,6 +704,162 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D16BD6EA2F8099CC003B8986 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8B5Y76UV6F;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "BlockErrn Watch App";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.tejay.BlockErrn;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrn.watchapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D16BD6EB2F8099CC003B8986 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8B5Y76UV6F;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "BlockErrn Watch App";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.tejay.BlockErrn;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tejay.BlockErrn.watchapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		D16BD6ED2F8099CC003B8986 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8B5Y76UV6F;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tejay.BlockErrn.BlockErrn-Watch-App-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BlockErrn Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BlockErrn Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D16BD6EE2F8099CC003B8986 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8B5Y76UV6F;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tejay.BlockErrn.BlockErrn-Watch-App-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BlockErrn Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BlockErrn Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		D16BD6F02F8099CC003B8986 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8B5Y76UV6F;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tejay.BlockErrn.BlockErrn-Watch-App-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "BlockErrn Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D16BD6F12F8099CC003B8986 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8B5Y76UV6F;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.tejay.BlockErrn.BlockErrn-Watch-App-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "BlockErrn Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
 			};
 			name = Release;
 		};
@@ -605,7 +993,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Flex Earnings Tracker/BackgroundModes.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -653,7 +1041,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Flex Earnings Tracker/BackgroundModes.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -788,6 +1176,33 @@
 			buildConfigurations = (
 				D16BD4D32F80515A003B8986 /* Debug */,
 				D16BD4D42F80515A003B8986 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D16BD6E92F8099CC003B8986 /* Build configuration list for PBXNativeTarget "BlockErrn Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D16BD6EA2F8099CC003B8986 /* Debug */,
+				D16BD6EB2F8099CC003B8986 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D16BD6EC2F8099CC003B8986 /* Build configuration list for PBXNativeTarget "BlockErrn Watch AppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D16BD6ED2F8099CC003B8986 /* Debug */,
+				D16BD6EE2F8099CC003B8986 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D16BD6EF2F8099CC003B8986 /* Build configuration list for PBXNativeTarget "BlockErrn Watch AppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D16BD6F02F8099CC003B8986 /* Debug */,
+				D16BD6F12F8099CC003B8986 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
