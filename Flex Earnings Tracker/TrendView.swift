@@ -19,15 +19,59 @@ struct TrendView: View {
                             .padding()
                     } else {
                         VStack(alignment: .leading, spacing: 24) {
-                            earningsAndMileageCard
+                            // Top-level metric cards (#7 + reworked)
+                            earningsOverviewCard
 
-                            TrendSectionCard(title: "Weekly trends") {
-                                grossCharts
+                            // Weekly earnings chart (reworked — gross + profit)
+                            TrendSectionCard(title: "Weekly Earnings") {
+                                weeklyEarningsSection
                             }
 
-                        TrendPreviewCard(title: "Recent Weeks", stats: weeklyStats, frequency: .week, limit: 3)
-                        TrendPreviewCard(title: "Recent Months", stats: monthlyStats, frequency: .month, limit: 3)
-                    }
+                            // Monthly earnings chart (reworked — gross + profit bars)
+                            TrendSectionCard(title: "Monthly Earnings") {
+                                monthlyEarningsSection
+                            }
+
+                            // #1 Profit/hr trend
+                            if weeklyChartData.contains(where: { $0.totalHours > 0 }) {
+                                TrendSectionCard(title: "Profit per Hour") {
+                                    profitPerHourSection
+                                }
+                            }
+
+                            // #2 Tips trend
+                            if weeklyChartData.contains(where: { $0.tipTotal > 0 }) {
+                                TrendSectionCard(title: "Tips Trend") {
+                                    tipsTrendSection
+                                }
+                            }
+
+                            // #3 Expense breakdown by category
+                            if !allExpensesByCategory.isEmpty {
+                                TrendSectionCard(title: "Expense Breakdown") {
+                                    expenseBreakdownSection
+                                }
+                            }
+
+                            // #4 Block count & hours per period
+                            TrendSectionCard(title: "Blocks & Hours") {
+                                blocksAndHoursSection
+                            }
+
+                            // #5 Actual vs Scheduled hours
+                            if weeklyChartData.contains(where: { $0.blocksWithActualTimes > 0 }) {
+                                TrendSectionCard(title: "Actual vs Scheduled") {
+                                    actualVsScheduledSection
+                                }
+                            }
+
+                            // #6 Efficiency metrics
+                            efficiencyCard
+
+                            // Recent weeks / months drill-down
+                            TrendPreviewCard(title: "Recent Weeks", stats: weeklyStats, frequency: .week, limit: 3)
+                            TrendPreviewCard(title: "Recent Months", stats: monthlyStats, frequency: .month, limit: 3)
+                        }
                         .padding()
                         .padding(.bottom, 32)
                     }
@@ -64,84 +108,99 @@ struct TrendView: View {
         .frame(maxWidth: .infinity, minHeight: UIScreen.main.bounds.height * 0.65)
     }
 
+    // MARK: - Chart highlight state
+
     @State private var highlightedWeek: PeriodStats? = nil
     @State private var highlightedMonth: PeriodStats? = nil
 
-    private var header: some View {
-        HStack(alignment: .top) {
-            Text("Earnings & Mileage")
-                .font(.title2)
-                .bold()
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("\(upcomingBlocksCount) Upcoming Blocks")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                Text("\(blocks.count) Total Blocks Tracked")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
+    // MARK: - #7 Top-Level Metric Cards (reworked with profit + profit/hr)
 
-    private var earningsAndMileageCard: some View {
+    private var earningsOverviewCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            header
-        metricGrid
+            HStack(alignment: .top) {
+                Text("Earnings Overview")
+                    .font(.title2)
+                    .bold()
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(upcomingBlocksCount) Upcoming")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("\(completedBlockCount) Completed")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // This Week
+            if let week = latestCompletedWeeklyStat {
+                Text("This Week")
+                    .font(.subheadline)
+                    .bold()
+                    .padding(.top, 4)
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 100), spacing: 10), GridItem(.flexible(minimum: 100), spacing: 10), GridItem(.flexible(minimum: 100), spacing: 10)], spacing: 10) {
+                    MetricCard(title: "Gross", value: formatCurrency(week.grossTotal), caption: "\(week.blockCount) blocks")
+                    MetricCard(title: "Profit", value: formatCurrency(week.totalProfit), caption: formatCurrency(week.profitPerHour) + "/hr")
+                    MetricCard(title: "Miles", value: formatMiles(week.totalMiles), caption: formatCurrency(week.totalMileageDeduction) + " ded.")
+                }
+            }
+
+            // This Month
+            if let month = latestCompletedMonthlyStat {
+                Text("This Month")
+                    .font(.subheadline)
+                    .bold()
+                    .padding(.top, 4)
+                LazyVGrid(columns: [GridItem(.flexible(minimum: 100), spacing: 10), GridItem(.flexible(minimum: 100), spacing: 10), GridItem(.flexible(minimum: 100), spacing: 10)], spacing: 10) {
+                    MetricCard(title: "Gross", value: formatCurrency(month.grossTotal), caption: "\(month.blockCount) blocks")
+                    MetricCard(title: "Profit", value: formatCurrency(month.totalProfit), caption: formatCurrency(month.profitPerHour) + "/hr")
+                    MetricCard(title: "Miles", value: formatMiles(month.totalMiles), caption: formatCurrency(month.totalMileageDeduction) + " ded.")
+                }
+            }
         }
         .flexErrnCardStyle()
     }
 
-    private var metricGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible(minimum: 140), spacing: 12), GridItem(.flexible(minimum: 140), spacing: 12)], spacing: 12) {
-            weeklyMetricCards
-            monthlyMetricCards
-        }
-        .padding(.top, 8)
-    }
+    // MARK: - Reworked Weekly Earnings (gross + profit overlay)
 
-    @ViewBuilder
-    private var weeklyMetricCards: some View {
-        if let latestWeekly = latestCompletedWeeklyStat {
-            MetricCard(title: "$ Earned\nThis Week", value: formatCurrency(latestWeekly.grossTotal), caption: "Latest gross")
-            MetricCard(title: "Miles Driven This Week", value: formatMiles(latestWeekly.totalMiles), caption: "All blocks")
+    private var weeklyEarningsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            weeklyEarningsChart
+            ChartCallout(stat: highlightedWeek ?? weeklyChartData.last)
         }
     }
 
-    @ViewBuilder
-    private var monthlyMetricCards: some View {
-        if let latestMonthly = latestCompletedMonthlyStat {
-            MetricCard(title: "$ Earned\nThis Month", value: formatCurrency(latestMonthly.grossTotal), caption: "Latest gross")
-            MetricCard(title: "Miles Driven This Month", value: formatMiles(latestMonthly.totalMiles), caption: "All blocks")
-        }
-    }
-
-    @ViewBuilder
-
-    private var grossCharts: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Gross per week")
-                .font(.headline)
-            weeklyChart
-            ChartCallout(stat: highlightedWeek ?? weeklyChartData.first)
-
-            Text("Gross per month")
-                .font(.headline)
-            monthlyChart
-            ChartCallout(stat: highlightedMonth ?? monthlyChartData.first)
-        }
-    }
-
-    private var weeklyChart: some View {
+    private var weeklyEarningsChart: some View {
         Chart {
             ForEach(weeklyChartData) { stat in
-                LineMark(x: .value("Week", stat.start), y: .value("Gross", stat.grossTotal.doubleValue))
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(.blue)
-                PointMark(x: .value("Week", stat.start), y: .value("Gross", stat.grossTotal.doubleValue))
-                    .foregroundStyle(.blue)
+                LineMark(
+                    x: .value("Week", stat.start),
+                    y: .value("Amount", stat.grossTotal.doubleValue)
+                )
+                .interpolationMethod(.catmullRom)
+                .foregroundStyle(by: .value("Type", "Gross"))
+                PointMark(
+                    x: .value("Week", stat.start),
+                    y: .value("Amount", stat.grossTotal.doubleValue)
+                )
+                .foregroundStyle(by: .value("Type", "Gross"))
+
+                LineMark(
+                    x: .value("Week", stat.start),
+                    y: .value("Amount", stat.totalProfit.doubleValue)
+                )
+                .interpolationMethod(.catmullRom)
+                .foregroundStyle(by: .value("Type", "Profit"))
+                .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                PointMark(
+                    x: .value("Week", stat.start),
+                    y: .value("Amount", stat.totalProfit.doubleValue)
+                )
+                .foregroundStyle(by: .value("Type", "Profit"))
             }
         }
+        .chartForegroundStyleScale(["Gross": .blue, "Profit": .green])
+        .chartLegend(position: .top, alignment: .leading)
         .chartXAxis {
             AxisMarks(values: weeklyChartData.map(\.start)) { value in
                 AxisGridLine()
@@ -157,12 +216,12 @@ struct TrendView: View {
                 AxisGridLine()
                 AxisValueLabel {
                     if let double = value.as(Double.self) {
-                        Text(formatCurrencyDecimal(Decimal(double)))
+                        Text(formatCurrencyShort(Decimal(double)))
                     }
                 }
             }
         }
-        .chartYScale(domain: 0...(monthlyGrossMax * Decimal(1.1)))
+        .chartYScale(domain: 0...(weeklyGrossMax * Decimal(1.15)))
         .chartOverlay { proxy in
             GeometryReader { _ in
                 Rectangle()
@@ -181,19 +240,38 @@ struct TrendView: View {
                     )
             }
         }
-        .frame(height: 180)
+        .frame(height: 200)
     }
 
-    private var monthlyChart: some View {
+    // MARK: - Reworked Monthly Earnings (side-by-side gross + profit bars)
+
+    private var monthlyEarningsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            monthlyEarningsChart
+            ChartCallout(stat: highlightedMonth ?? monthlyChartData.last)
+        }
+    }
+
+    private var monthlyEarningsChart: some View {
         Chart {
             ForEach(monthlyChartData) { stat in
                 BarMark(
                     x: .value("Month", stat.start),
-                    y: .value("Gross", stat.grossTotal.doubleValue)
+                    y: .value("Amount", stat.grossTotal.doubleValue)
                 )
-                .foregroundStyle(.green)
+                .foregroundStyle(by: .value("Type", "Gross"))
+                .position(by: .value("Type", "Gross"))
+
+                BarMark(
+                    x: .value("Month", stat.start),
+                    y: .value("Amount", stat.totalProfit.doubleValue)
+                )
+                .foregroundStyle(by: .value("Type", "Profit"))
+                .position(by: .value("Type", "Profit"))
             }
         }
+        .chartForegroundStyleScale(["Gross": .blue, "Profit": .green])
+        .chartLegend(position: .top, alignment: .leading)
         .chartXAxis {
             AxisMarks(values: monthlyChartData.map(\.start)) { value in
                 AxisGridLine()
@@ -202,7 +280,6 @@ struct TrendView: View {
                         Text(monthLabelFormatter.string(from: date))
                             .lineLimit(1)
                             .minimumScaleFactor(0.65)
-                            .allowsTightening(true)
                     }
                 }
             }
@@ -213,7 +290,7 @@ struct TrendView: View {
                 AxisGridLine()
                 AxisValueLabel {
                     if let double = value.as(Double.self) {
-                        Text(formatCurrencyDecimal(Decimal(double)))
+                        Text(formatCurrencyShort(Decimal(double)))
                     }
                 }
             }
@@ -239,17 +316,384 @@ struct TrendView: View {
                     )
             }
         }
-        .frame(height: 180)
+        .frame(height: 200)
     }
 
-    private func formatCurrencyDecimal(_ value: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        formatter.maximumFractionDigits = 0
-        formatter.minimumFractionDigits = 0
-        return formatter.string(from: value as NSDecimalNumber) ?? "$0"
+    // MARK: - #1 Profit per Hour Trend
+
+    private var profitPerHourSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Weekly profit/hr trend")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Chart {
+                ForEach(weeklyChartData) { stat in
+                    if stat.totalHours > 0 {
+                        AreaMark(
+                            x: .value("Week", stat.start),
+                            y: .value("$/hr", stat.profitPerHour.doubleValue)
+                        )
+                        .foregroundStyle(.green.opacity(0.15))
+                        .interpolationMethod(.catmullRom)
+
+                        LineMark(
+                            x: .value("Week", stat.start),
+                            y: .value("$/hr", stat.profitPerHour.doubleValue)
+                        )
+                        .interpolationMethod(.catmullRom)
+                        .foregroundStyle(.green)
+
+                        PointMark(
+                            x: .value("Week", stat.start),
+                            y: .value("$/hr", stat.profitPerHour.doubleValue)
+                        )
+                        .foregroundStyle(.green)
+                        .annotation(position: .top, spacing: 4) {
+                            Text(formatCurrencyShort(stat.profitPerHour))
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: weeklyChartData.map(\.start)) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(weekLabelFormatter.string(from: date))
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let double = value.as(Double.self) {
+                            Text(formatCurrencyShort(Decimal(double)))
+                        }
+                    }
+                }
+            }
+            .frame(height: 180)
+        }
     }
+
+    // MARK: - #2 Tips Trend
+
+    private var tipsTrendSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Weekly tips earned")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Chart {
+                ForEach(weeklyChartData) { stat in
+                    BarMark(
+                        x: .value("Week", stat.start),
+                        y: .value("Tips", stat.tipTotal.doubleValue)
+                    )
+                    .foregroundStyle(.orange.gradient)
+                    .annotation(position: .top, spacing: 2) {
+                        if stat.tipTotal > 0 {
+                            Text(formatCurrencyShort(stat.tipTotal))
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: weeklyChartData.map(\.start)) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(weekLabelFormatter.string(from: date))
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let double = value.as(Double.self) {
+                            Text(formatCurrencyShort(Decimal(double)))
+                        }
+                    }
+                }
+            }
+            .frame(height: 160)
+
+            // Tip rate stat
+            if let latest = latestCompletedWeeklyStat, latest.grossTotal > 0 {
+                let tipPercent = latest.tipTotal / latest.grossTotal * 100
+                HStack {
+                    Text("Tips as % of gross this week:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(String(format: "%.1f%%", NSDecimalNumber(decimal: tipPercent).doubleValue))
+                        .font(.caption)
+                        .bold()
+                }
+            }
+        }
+    }
+
+    // MARK: - #3 Expense Breakdown by Category
+
+    private var allExpensesByCategory: [(category: String, total: Decimal)] {
+        var categoryTotals: [String: Decimal] = [:]
+        let completedBlocks = blocks.filter { $0.status == .completed }
+        for block in completedBlocks {
+            for expense in block.expenses {
+                let name = ExpenseCategory(rawValue: expense.categoryRaw)?.displayName ?? expense.categoryRaw
+                categoryTotals[name, default: 0] += expense.amount
+            }
+        }
+        return categoryTotals
+            .map { (category: $0.key, total: $0.value) }
+            .sorted { $0.total > $1.total }
+    }
+
+    private let categoryColors: [Color] = [.red, .orange, .yellow, .purple, .pink, .cyan, .mint, .indigo]
+
+    private var expenseBreakdownSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            let data = allExpensesByCategory
+            let grandTotal = data.reduce(Decimal(0)) { $0 + $1.total }
+
+            Chart(data, id: \.category) { item in
+                SectorMark(
+                    angle: .value("Amount", item.total.doubleValue),
+                    innerRadius: .ratio(0.55),
+                    angularInset: 1.5
+                )
+                .foregroundStyle(by: .value("Category", item.category))
+                .cornerRadius(4)
+            }
+            .chartLegend(position: .bottom, alignment: .center, spacing: 12)
+            .frame(height: 200)
+
+            // Category breakdown list
+            ForEach(Array(data.enumerated()), id: \.element.category) { index, item in
+                HStack {
+                    Circle()
+                        .fill(categoryColors[index % categoryColors.count])
+                        .frame(width: 10, height: 10)
+                    Text(item.category)
+                        .font(.caption)
+                    Spacer()
+                    Text(formatCurrency(item.total))
+                        .font(.caption)
+                        .bold()
+                    if grandTotal > 0 {
+                        let pct = item.total / grandTotal * 100
+                        Text(String(format: "(%.0f%%)", NSDecimalNumber(decimal: pct).doubleValue))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - #4 Blocks & Hours per Period
+
+    private var blocksAndHoursSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Weekly blocks & hours")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Chart {
+                ForEach(weeklyChartData) { stat in
+                    BarMark(
+                        x: .value("Week", stat.start),
+                        y: .value("Hours", stat.totalHours.doubleValue)
+                    )
+                    .foregroundStyle(.indigo.gradient)
+                    .annotation(position: .top, spacing: 2) {
+                        Text("\(stat.blockCount)b")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: weeklyChartData.map(\.start)) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(weekLabelFormatter.string(from: date))
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let double = value.as(Double.self) {
+                            Text(String(format: "%.0fh", double))
+                        }
+                    }
+                }
+            }
+            .frame(height: 160)
+
+            // Summary row
+            if let week = latestCompletedWeeklyStat, let month = latestCompletedMonthlyStat {
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("This week")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("\(week.blockCount) blocks, \(formatHours(week.totalHours))")
+                            .font(.caption)
+                            .bold()
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("This month")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("\(month.blockCount) blocks, \(formatHours(month.totalHours))")
+                            .font(.caption)
+                            .bold()
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - #5 Actual vs Scheduled Hours
+
+    private var actualVsScheduledSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Scheduled hours vs actual worked hours per week")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Chart {
+                ForEach(weeklyChartData) { stat in
+                    if stat.blocksWithActualTimes > 0 {
+                        BarMark(
+                            x: .value("Week", stat.start),
+                            y: .value("Hours", stat.totalHours.doubleValue)
+                        )
+                        .foregroundStyle(by: .value("Type", "Scheduled"))
+                        .position(by: .value("Type", "Scheduled"))
+
+                        BarMark(
+                            x: .value("Week", stat.start),
+                            y: .value("Hours", stat.actualWorkedHours.doubleValue)
+                        )
+                        .foregroundStyle(by: .value("Type", "Actual"))
+                        .position(by: .value("Type", "Actual"))
+                    }
+                }
+            }
+            .chartForegroundStyleScale(["Scheduled": .gray.opacity(0.5), "Actual": .blue])
+            .chartLegend(position: .top, alignment: .leading)
+            .chartXAxis {
+                AxisMarks(values: weeklyChartData.filter({ $0.blocksWithActualTimes > 0 }).map(\.start)) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(weekLabelFormatter.string(from: date))
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let double = value.as(Double.self) {
+                            Text(String(format: "%.0fh", double))
+                        }
+                    }
+                }
+            }
+            .frame(height: 170)
+
+            // Overtime / undertime summary for latest week
+            if let week = latestCompletedWeeklyStat, week.blocksWithActualTimes > 0 {
+                let diff = week.actualWorkedHours - week.totalHours
+                let diffDouble = NSDecimalNumber(decimal: diff).doubleValue
+                HStack {
+                    Text("This week difference:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(String(format: "%+.1fh", diffDouble))
+                        .font(.caption)
+                        .bold()
+                        .foregroundStyle(diff >= 0 ? .red : .green)
+                }
+                Text(diff >= 0 ? "You worked longer than scheduled" : "You finished earlier than scheduled")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - #6 Efficiency Metrics
+
+    private var efficiencyCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Efficiency")
+                .font(.title3)
+                .bold()
+
+            let allCompleted = blocks.filter { $0.status == .completed }
+            let totalMiles = allCompleted.reduce(Decimal(0)) { $0 + $1.roundedMiles }
+            let totalProfit = allCompleted.reduce(Decimal(0)) { $0 + $1.totalProfit }
+            let totalPkgs = allCompleted.compactMap(\.packageCount).reduce(0, +)
+            let totalStps = allCompleted.compactMap(\.stopCount).reduce(0, +)
+            let totalActualMinutes = allCompleted.reduce(0) { total, block in
+                guard let s = block.userStartTime, let e = block.userCompletionTime else { return total }
+                return total + max(0, Int(e.timeIntervalSince(s) / 60))
+            }
+            let actualHrs = Decimal(totalActualMinutes) / 60
+
+            LazyVGrid(columns: [GridItem(.flexible(minimum: 100), spacing: 10), GridItem(.flexible(minimum: 100), spacing: 10)], spacing: 10) {
+                if totalMiles > 0 {
+                    MetricCard(
+                        title: "Profit/Mile",
+                        value: formatCurrency(totalProfit / totalMiles),
+                        caption: "All-time"
+                    )
+                }
+                if !allCompleted.isEmpty {
+                    MetricCard(
+                        title: "Miles/Block",
+                        value: formatMiles(totalMiles / Decimal(allCompleted.count)),
+                        caption: "Avg per block"
+                    )
+                }
+                if actualHrs > 0 && totalPkgs > 0 {
+                    let pkgsPerHr = Decimal(totalPkgs) / actualHrs
+                    MetricCard(
+                        title: "Pkgs/Hour",
+                        value: formatDecimal(pkgsPerHr),
+                        caption: "\(totalPkgs) total"
+                    )
+                }
+                if actualHrs > 0 && totalStps > 0 {
+                    let stopsPerHr = Decimal(totalStps) / actualHrs
+                    MetricCard(
+                        title: "Stops/Hour",
+                        value: formatDecimal(stopsPerHr),
+                        caption: "\(totalStps) total"
+                    )
+                }
+            }
+        }
+        .flexErrnCardStyle()
+    }
+
+    // MARK: - Data Helpers
 
     private func nearestWeeklyStat(to date: Date) -> PeriodStats? {
         weeklyChartData.min(by: {
@@ -303,8 +747,8 @@ struct TrendView: View {
         completedMonthlyStats.first
     }
 
-    private var monthlyGrossMax: Decimal {
-        monthlyChartData.map(\.grossTotal).max() ?? 0
+    private var weeklyGrossMax: Decimal {
+        weeklyChartData.map(\.grossTotal).max() ?? 0
     }
 
     private var monthlyDateDomain: ClosedRange<Date>? {
@@ -320,6 +764,10 @@ struct TrendView: View {
         let start = monthlyChartData.first?.start ?? Date()
         let last = monthlyChartData.last?.start ?? start
         return start...last
+    }
+
+    private var completedBlockCount: Int {
+        blocks.filter { $0.status == .completed }.count
     }
 
     private func periodStats(for frequency: TrendFrequency) -> [PeriodStats] {
@@ -348,6 +796,8 @@ struct TrendView: View {
         }
         .sorted(by: { $0.start > $1.start })
     }
+
+    // MARK: - Sub-views
 
     private struct TrendPreviewCard: View {
         let title: String
@@ -420,17 +870,7 @@ struct TrendView: View {
         }
     }
 
-    private var scheduledBlocksThisWeek: [Block] {
-        guard let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())) else { return [] }
-        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
-        return blocks.filter {
-            $0.status == .accepted && blockStart($0) >= weekStart && blockStart($0) < weekEnd
-        }
-    }
-
-    private var scheduledGrossThisWeek: Decimal {
-        scheduledBlocksThisWeek.reduce(0) { $0 + $1.grossPayout }
-    }
+    // MARK: - Formatters
 
     private var upcomingBlocksCount: Int {
         let now = Date()
@@ -452,11 +892,34 @@ struct TrendView: View {
         return formatter.string(from: value as NSDecimalNumber) ?? "$0.00"
     }
 
+    private func formatCurrencyShort(_ value: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        formatter.maximumFractionDigits = 0
+        formatter.minimumFractionDigits = 0
+        return formatter.string(from: value as NSDecimalNumber) ?? "$0"
+    }
+
     private func formatMiles(_ value: Decimal) -> String {
         let formatter = NumberFormatter()
-        formatter.maximumFractionDigits = 2
+        formatter.maximumFractionDigits = 1
         formatter.minimumFractionDigits = 0
         return "\(formatter.string(from: value as NSDecimalNumber) ?? "0") mi"
+    }
+
+    private func formatHours(_ value: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.maximumFractionDigits = 1
+        formatter.minimumFractionDigits = 1
+        return "\(formatter.string(from: value as NSDecimalNumber) ?? "0")h"
+    }
+
+    private func formatDecimal(_ value: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.maximumFractionDigits = 1
+        formatter.minimumFractionDigits = 1
+        return formatter.string(from: value as NSDecimalNumber) ?? "0"
     }
 
     private func refreshStats() {

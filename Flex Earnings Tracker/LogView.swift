@@ -226,7 +226,7 @@ struct LogView: View {
     }
 
     private func isUpcoming(_ block: Block) -> Bool {
-        startDate(for: block) > Date()
+        block.status == .accepted && startDate(for: block) > Date()
     }
 
     private func formatCurrency(_ value: Decimal) -> String {
