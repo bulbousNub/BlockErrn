@@ -629,7 +629,7 @@ struct DataView: View {
                 includePreReminder: settingPayload.includePreReminder ?? true,
                 hasDismissedPlanCard: settingPayload.hasDismissedPlanCard ?? false,
                 expenseCategories: settingPayload.expenseCategoryDescriptors,
-                hasCompletedOnboarding: settingPayload.hasCompletedOnboarding ?? false,
+                hasCompletedOnboarding: true,
                 reminderBeforeStartMinutes: settingPayload.reminderBeforeStartMinutes ?? 45,
                 reminderBeforeEndMinutes: settingPayload.reminderBeforeEndMinutes ?? 15,
                 tipReminderHours: settingPayload.tipReminderHours ?? 24

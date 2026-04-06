@@ -7,7 +7,7 @@ struct SettingsView: View {
     @Query private var settings: [AppSettings]
     @State private var irsRateText: String = ""
     @State private var selectedAppearance: AppearancePreference = .system
-    @State private var mileageSavedMessage: String?
+    
     @State private var showExpenseCategoryEditor: Bool = false
     @State private var showGitHub: Bool = false
     @State private var reminderBeforeStartMinutes: Int = 45
@@ -76,17 +76,11 @@ struct SettingsView: View {
                             TextField("IRS mileage rate (cents per mile)", text: $irsRateText)
                                 .keyboardType(.numberPad)
                                 .keyboardDoneToolbar()
-                                .onChange(of: irsRateText) { _ in mileageSavedMessage = nil }
-                                .onSubmit { save() }
+                                .onChange(of: irsRateText) { _ in saveIRSRate() }
                             Text("IRS rate is shown in cents (70 = $0.70/mi). It determines the mileage deduction when you add new blocks and matches the current IRS standard rate; changes are not retroactive but only affect future entries.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            if let message = mileageSavedMessage {
-                                Text(message)
-                                    .font(.caption2)
-                                    .foregroundStyle(.green)
-                                }
                             }
 
                         SectionCard(title: "About BlockErrn") {
@@ -162,9 +156,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Save") { save() } }
-            }
+            
             .sheet(isPresented: $showExpenseCategoryEditor) {
                 if let appSettings = settings.first {
                     ExpenseCategoryEditor(appSettings: appSettings)
@@ -183,7 +175,7 @@ struct SettingsView: View {
     }
 
 
-    private func save() {
+    private func saveIRSRate() {
         guard let cents = Int(irsRateText), cents >= 0 else { return }
         let rate = Decimal(cents) / Decimal(100)
         if let s = settings.first {
@@ -193,7 +185,6 @@ struct SettingsView: View {
             context.insert(s)
         }
         try? context.save()
-        setMileageSavedMessage("Mileage rate saved")
     }
 
     private func syncAppearancePreference() {
@@ -214,10 +205,6 @@ struct SettingsView: View {
     private func formatCents(_ value: Decimal) -> String {
         let cents = NSDecimalNumber(decimal: value * Decimal(100)).intValue
         return "\(cents)"
-    }
-
-    private func setMileageSavedMessage(_ text: String) {
-        mileageSavedMessage = text
     }
 
     private func loadSettings() {
