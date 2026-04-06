@@ -32,35 +32,46 @@ struct OnboardingView: View {
                 .ignoresSafeArea()
             Color.black.opacity(0.35)
                 .ignoresSafeArea()
-            VStack(spacing: 24) {
-                stepContent(for: currentStep)
-            stepIndicator
+            VStack(spacing: 20) {
+                Spacer(minLength: 0)
 
-                HStack(spacing: 12) {
-                    if currentStep > 0 {
-                        Button("Back") {
-                            currentStep -= 1
+                VStack(spacing: 24) {
+                    stepContent(for: currentStep)
+                }
+                .padding(32)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .shadow(color: Color.black.opacity(0.4), radius: 30, x: 0, y: 10)
+                .padding(.horizontal)
+
+                Spacer(minLength: 0)
+
+                VStack(spacing: 12) {
+                    stepIndicator
+
+                    HStack(spacing: 12) {
+                        if currentStep > 0 {
+                            Button("Back") {
+                                currentStep -= 1
+                            }
+                            .font(.subheadline)
+                            .buttonStyle(.bordered)
                         }
-                        .font(.subheadline)
-                        .buttonStyle(.bordered)
-                    }
 
-                Button(currentStep == steps - 1 ? "Let’s go" : "Next") {
-                    if currentStep == steps - 1 {
-                        completeOnboarding()
-                    } else {
-                        currentStep += 1
+                        Button(currentStep == steps - 1 ? "Let's go" : "Next") {
+                            if currentStep == steps - 1 {
+                                completeOnboarding()
+                            } else {
+                                currentStep += 1
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                }
+                .padding(.bottom, 32)
             }
-            .padding(32)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-            .shadow(color: Color.black.opacity(0.4), radius: 30, x: 0, y: 10)
-            .padding()
+            .animation(.none, value: currentStep)
         }
         .onChange(of: notificationPermissionGranted) { granted in
             if granted && currentStep == 3 {

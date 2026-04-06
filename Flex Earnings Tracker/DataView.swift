@@ -79,7 +79,7 @@ struct DataView: View {
                     .font(.title2)
                     .foregroundStyle(.secondary)
             }
-            Text("Create branded PDF reports, export to CSV for spreadsheets, back up your data, or restore from a previous backup.")
+            Text("Create PDF reports, export to CSV for spreadsheets, back up your data, or restore from a previous backup.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -96,7 +96,7 @@ struct DataView: View {
                     Text("Earnings Report")
                         .font(.title3)
                         .bold()
-                    Text("Generate a branded PDF report with earnings summaries, block logs, expense breakdowns, and efficiency metrics. Filter by date and status, then preview and share.")
+                    Text("Generate a PDF report with earnings summaries, block logs, expense breakdowns, and efficiency metrics. Filter by date and status, then preview and share.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

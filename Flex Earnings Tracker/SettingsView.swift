@@ -137,6 +137,27 @@ struct SettingsView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+
+                                NavigationLink {
+                                    ContactView()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "envelope.fill")
+                                        Text("Contact")
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .fill(Color(.secondarySystemBackground))
+                                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
 
@@ -449,7 +470,7 @@ private struct LicenseEntry: Identifiable {
     let licenseText: String
 }
 
-private struct SectionCard<Content: View>: View {
+struct SectionCard<Content: View>: View {
     let title: String?
     let background: AnyShapeStyle
     let content: Content

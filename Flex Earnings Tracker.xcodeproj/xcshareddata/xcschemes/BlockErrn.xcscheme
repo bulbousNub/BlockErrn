@@ -74,6 +74,9 @@
             ReferencedContainer = "container:Flex Earnings Tracker.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <StoreKitConfigurationFileReference
+         identifier = "../../Flex Earnings Tracker/BlockErrnProducts.storekit">
+      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

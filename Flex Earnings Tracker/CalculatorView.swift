@@ -376,8 +376,8 @@ struct CalculatorView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 6) {
-                Label("**Active block** appears here when you start one — track mileage and expenses in real time.", systemImage: "bolt.fill")
-                Label("**Upcoming blocks** show below when a block is accepted but hasn't started yet.", systemImage: "calendar")
+                Label("**Active blocks** appear here within 45 minutes of start time — track mileage and expenses in real time.", systemImage: "bolt.fill")
+                Label("**Upcoming blocks** show below when a block is accepted and scheduled to start within the next 3 days.", systemImage: "calendar")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
