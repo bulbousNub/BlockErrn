@@ -22,7 +22,9 @@ struct OnboardingView: View {
     @State private var iCloudBackupDate: Date?
     @ObservedObject private var iCloudManager = ICloudBackupManager.shared
 
-    private let steps = 6
+    @ObservedObject private var store = StoreKitManager.shared
+    @State private var showProUpgrade = false
+    private let steps = 7
 
     var body: some View {
         ZStack {
@@ -225,8 +227,10 @@ struct OnboardingView: View {
             locationStep
         case 5:
             motionStep
+        case 6:
+            proStep
         default:
-            motionStep
+            proStep
         }
     }
 
@@ -437,6 +441,118 @@ struct OnboardingView: View {
         }
 
         try context.save()
+    }
+
+    private var proStep: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "star.circle.fill")
+                .font(.system(size: 48, weight: .semibold))
+                .foregroundStyle(.yellow)
+                .shadow(color: .yellow.opacity(0.4), radius: 8, x: 0, y: 3)
+
+            Text("BlockErrn Pro")
+                .font(.title2)
+                .bold()
+                .foregroundColor(.primary)
+
+            Text("Unlock every feature")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            // Free features
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Always included")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                freeFeatureRow("Block tracking")
+                freeFeatureRow("Mileage GPS tracking")
+                freeFeatureRow("Expense logging")
+                freeFeatureRow("Current week trends")
+                freeFeatureRow("Basic CSV export")
+                freeFeatureRow("Local backup")
+                freeFeatureRow("Apple Watch app")
+                freeFeatureRow("CarPlay dashboard")
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            // Pro-only feature list
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Unlock with Pro")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                proFeatureRow("Receipt capture")
+                proFeatureRow("Full trend history")
+                proFeatureRow("iCloud backup")
+                proFeatureRow("PDF reports")
+                proFeatureRow("CSV column config")
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            Button {
+                showProUpgrade = true
+            } label: {
+                Text("View Plans & Pricing")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.yellow)
+            .foregroundColor(.black)
+
+            HStack(spacing: 16) {
+                Button {
+                    Task { await store.restorePurchases() }
+                } label: {
+                    Text("Restore Purchases")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+
+                Text("·")
+                    .foregroundStyle(.secondary)
+
+                Text("1-week free trial on subscriptions")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .sheet(isPresented: $showProUpgrade) {
+            NavigationStack {
+                ProUpgradeView(isOnboarding: true)
+            }
+        }
+    }
+
+    private func freeFeatureRow(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+        }
+    }
+
+    private func proFeatureRow(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.yellow)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+        }
     }
 
     private func iconBadge(_ name: String) -> some View {

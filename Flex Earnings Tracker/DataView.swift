@@ -8,9 +8,11 @@ struct DataView: View {
     @Query private var settings: [AppSettings]
     @Query private var blocks: [Block]
     @ObservedObject private var iCloudManager = ICloudBackupManager.shared
+    @ObservedObject private var store = StoreKitManager.shared
 
     @State private var shareableBackup: ShareableBackup?
     @State private var showImporter: Bool = false
+    @State private var showProUpgrade: Bool = false
     @State private var backupMessage: String?
     @State private var backupMessageStyle: DataMessageStyle = .info
     @State private var importMessage: String?
@@ -45,6 +47,11 @@ struct DataView: View {
                 allowsMultipleSelection: false
             ) { result in
                 handleImport(result)
+            }
+            .sheet(isPresented: $showProUpgrade) {
+                NavigationStack {
+                    ProUpgradeView()
+                }
             }
             .onAppear {
                 loadLastBackupDate()
@@ -83,43 +90,49 @@ struct DataView: View {
     // MARK: - Report Tile
 
     private var reportTile: some View {
-        NavigationLink {
-            ReportView()
-        } label: {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Earnings Report")
-                            .font(.title3)
-                            .bold()
-                        Text("Generate a branded PDF report with earnings summaries, block logs, expense breakdowns, and efficiency metrics. Filter by date and status, then preview and share.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer()
-                    Image(systemName: "doc.richtext")
-                        .font(.system(size: 36))
-                        .foregroundColor(.accentColor)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Earnings Report")
+                        .font(.title3)
+                        .bold()
+                    Text("Generate a branded PDF report with earnings summaries, block logs, expense breakdowns, and efficiency metrics. Filter by date and status, then preview and share.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                HStack {
-                    Text("Generate Report")
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                }
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
-                        .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
-                )
+                Spacer()
+                Image(systemName: "doc.richtext")
+                    .font(.system(size: 36))
+                    .foregroundColor(.accentColor)
             }
-            .flexErrnCardStyle()
+            if store.isProUnlocked {
+                NavigationLink {
+                    ReportView()
+                } label: {
+                    HStack {
+                        Text("Generate Report")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color(.secondarySystemBackground))
+                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                    )
+                }
+                .buttonStyle(.plain)
+            } else {
+                ProLockedBanner(feature: "PDF Reports") {
+                    showProUpgrade = true
+                }
+            }
         }
-        .buttonStyle(.plain)
+        .flexErrnCardStyle()
     }
 
     // MARK: - CSV Tile
@@ -192,7 +205,21 @@ struct DataView: View {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 4) {
                         backupRow(label: "Local", date: lastBackupDate)
-                        backupRow(label: "iCloud", date: iCloudManager.lastBackupDate)
+                        if store.isProUnlocked {
+                            backupRow(label: "iCloud", date: iCloudManager.lastBackupDate)
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "icloud.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text("iCloud")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text("Unlock with BlockErrn Pro")
+                                    .font(.caption)
+                                    .foregroundStyle(.yellow)
+                            }
+                        }
                     }
                     Spacer()
                     backupFormatToggle
@@ -219,26 +246,32 @@ struct DataView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            NavigationLink {
-                ICloudBackupView()
-            } label: {
-                HStack {
-                    Image(systemName: "icloud")
-                    Text("iCloud Backup")
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Image(systemName: "chevron.right")
+            if store.isProUnlocked {
+                NavigationLink {
+                    ICloudBackupView()
+                } label: {
+                    HStack {
+                        Image(systemName: "icloud")
+                        Text("iCloud Backup")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color(.secondarySystemBackground))
+                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                    )
                 }
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
-                        .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
-                )
+                .buttonStyle(.plain)
+            } else {
+                ProLockedBanner(feature: "iCloud Backup") {
+                    showProUpgrade = true
+                }
             }
-            .buttonStyle(.plain)
         }
         .flexErrnCardStyle()
     }

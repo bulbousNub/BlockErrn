@@ -66,8 +66,10 @@ struct CSVExportView: View {
     ]
 
     @Query private var blocks: [Block]
+    @ObservedObject private var store = StoreKitManager.shared
     @State private var selectedFields: Set<ExportField> = Set(exportFieldOrder)
     @State private var showCSVExporter: Bool = false
+    @State private var showProUpgrade: Bool = false
     @State private var csvDocument: CSVDocument = .empty
     @State private var exportMessage: String?
     @State private var exportMessageStyle: DataMessageStyle = .info
@@ -143,38 +145,56 @@ struct CSVExportView: View {
                 Text("Columns")
                     .font(.headline)
                 Spacer()
-                Button(selectedFields.count == Self.exportFieldOrder.count ? "Deselect All" : "Select All") {
-                    if selectedFields.count == Self.exportFieldOrder.count {
-                        selectedFields.removeAll()
-                    } else {
-                        selectedFields = Set(Self.exportFieldOrder)
+                if store.isProUnlocked {
+                    Button(selectedFields.count == Self.exportFieldOrder.count ? "Deselect All" : "Select All") {
+                        if selectedFields.count == Self.exportFieldOrder.count {
+                            selectedFields.removeAll()
+                        } else {
+                            selectedFields = Set(Self.exportFieldOrder)
+                        }
                     }
+                    .font(.caption)
                 }
-                .font(.caption)
             }
 
-            Text("Choose which columns to include in the exported CSV file.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if store.isProUnlocked {
+                Text("Choose which columns to include in the exported CSV file.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            let columns = [GridItem(.flexible()), GridItem(.flexible())]
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(Self.exportFieldOrder) { field in
-                    Toggle(isOn: Binding(
-                        get: { selectedFields.contains(field) },
-                        set: { isSelected in
-                            if isSelected {
-                                selectedFields.insert(field)
-                            } else {
-                                selectedFields.remove(field)
+                let columns = [GridItem(.flexible()), GridItem(.flexible())]
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(Self.exportFieldOrder) { field in
+                        Toggle(isOn: Binding(
+                            get: { selectedFields.contains(field) },
+                            set: { isSelected in
+                                if isSelected {
+                                    selectedFields.insert(field)
+                                } else {
+                                    selectedFields.remove(field)
+                                }
                             }
+                        )) {
+                            Text(field.displayName)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
                         }
-                    )) {
-                        Text(field.displayName)
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
+                        .toggleStyle(CheckboxToggleStyle())
                     }
-                    .toggleStyle(CheckboxToggleStyle())
+                }
+            } else {
+                Text("Free export includes all columns. Upgrade to Pro to customize which columns are included.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ProLockedBanner(feature: "CSV Column Configuration") {
+                    showProUpgrade = true
+                }
+                .sheet(isPresented: $showProUpgrade) {
+                    NavigationStack {
+                        ProUpgradeView()
+                    }
                 }
             }
         }

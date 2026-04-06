@@ -748,6 +748,8 @@ struct AddExpenseSheet: View {
     @State private var note: String = ""
     @State private var receiptImage: UIImage?
     @State private var showReceiptScanner = false
+    @State private var showProUpgrade = false
+    @ObservedObject private var store = StoreKitManager.shared
     @Query private var settings: [AppSettings]
     @Environment(\.colorScheme) private var colorScheme
 
@@ -840,49 +842,60 @@ struct AddExpenseSheet: View {
 
     private var receiptCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Receipt")
+            if store.isProUnlocked {
+                HStack {
+                    Text("Receipt")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        showReceiptScanner = true
+                    } label: {
+                        Text(receiptImage == nil ? "Scan Receipt" : "Update Receipt")
+                            .font(.subheadline)
+                            .bold()
+                    }
+                }
+                Group {
+                    if let preview = receiptImage {
+                        Image(uiImage: preview)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 160)
+                            .cornerRadius(16)
+                    } else {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.white.opacity(0.05))
+                            .frame(height: 120)
+                            .overlay(
+                                Text("Keeping the receipt here helps you recall the purchase.")
+                                    .font(.caption)
+                                    .multilineTextAlignment(.center)
+                                    .foregroundStyle(.secondary)
+                                    .padding()
+                            )
+                    }
+                }
+                if receiptImage != nil {
+                    Button("Remove receipt") {
+                        removeReceipt()
+                    }
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    showReceiptScanner = true
-                } label: {
-                    Text(receiptImage == nil ? "Scan Receipt" : "Update Receipt")
-                        .font(.subheadline)
-                        .bold()
+                    .foregroundColor(.red)
                 }
-            }
-            Group {
-                if let preview = receiptImage {
-                    Image(uiImage: preview)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxHeight: 160)
-                        .cornerRadius(16)
-                } else {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.05))
-                        .frame(height: 120)
-                        .overlay(
-                            Text("Keeping the receipt here helps you recall the purchase.")
-                                .font(.caption)
-                                .multilineTextAlignment(.center)
-                                .foregroundStyle(.secondary)
-                                .padding()
-                        )
+            } else {
+                ProLockedBanner(feature: "Receipt Capture") {
+                    showProUpgrade = true
                 }
-            }
-            if receiptImage != nil {
-                Button("Remove receipt") {
-                    removeReceipt()
-                }
-                .font(.footnote)
-                .foregroundColor(.red)
             }
         }
         .padding()
         .flexErrnCardStyle()
+        .sheet(isPresented: $showProUpgrade) {
+            NavigationStack {
+                ProUpgradeView()
+            }
+        }
     }
 
     private var actionRow: some View {
@@ -1262,9 +1275,11 @@ private struct ExpenseDetailView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var store = StoreKitManager.shared
     @State private var receiptPreview: UIImage?
     @State private var showReceiptScanner = false
     @State private var showReceiptFullscreen = false
+    @State private var showProUpgrade = false
     var body: some View {
         ZStack {
             BlockErrnTheme.backgroundGradient.ignoresSafeArea()
@@ -1389,49 +1404,60 @@ private struct ExpenseDetailView: View {
 
     private var receiptSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Receipt")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                Spacer()
-                Button {
-                    showReceiptScanner = true
-                } label: {
-                    Text(receiptPreview == nil ? "Scan Receipt" : "Retake Receipt")
-                        .font(.subheadline)
-                        .bold()
+            if store.isProUnlocked {
+                HStack {
+                    Text("Receipt")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Spacer()
+                    Button {
+                        showReceiptScanner = true
+                    } label: {
+                        Text(receiptPreview == nil ? "Scan Receipt" : "Retake Receipt")
+                            .font(.subheadline)
+                            .bold()
+                    }
                 }
-            }
-            Group {
-                if let preview = receiptPreview {
-                    Image(uiImage: preview)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxHeight: 180)
-                        .cornerRadius(16)
-                        .onTapGesture {
-                            showReceiptFullscreen = true
-                        }
-                } else {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.05))
-                        .frame(height: 120)
-                        .overlay(
-                            Text("Receipts stay with the expense for later reference.")
-                                .font(.caption)
-                                .multilineTextAlignment(.center)
-                                .foregroundStyle(.secondary)
-                                .padding()
-                        )
+                Group {
+                    if let preview = receiptPreview {
+                        Image(uiImage: preview)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 180)
+                            .cornerRadius(16)
+                            .onTapGesture {
+                                showReceiptFullscreen = true
+                            }
+                    } else {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.white.opacity(0.05))
+                            .frame(height: 120)
+                            .overlay(
+                                Text("Receipts stay with the expense for later reference.")
+                                    .font(.caption)
+                                    .multilineTextAlignment(.center)
+                                    .foregroundStyle(.secondary)
+                                    .padding()
+                            )
+                    }
                 }
-            }
-            if receiptPreview != nil {
-                Button("Delete receipt") {
-                    removeReceipt()
+                if receiptPreview != nil {
+                    Button("Delete receipt") {
+                        removeReceipt()
+                    }
+                    .font(.footnote)
+                    .foregroundColor(.red)
                 }
-                .font(.footnote)
-                .foregroundColor(.red)
+            } else {
+                ProLockedBanner(feature: "Receipt Capture") {
+                    showProUpgrade = true
+                }
+                .sheet(isPresented: $showProUpgrade) {
+                    NavigationStack {
+                        ProUpgradeView()
+                    }
+                }
             }
         }
         .padding()

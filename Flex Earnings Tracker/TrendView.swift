@@ -4,7 +4,9 @@ import Charts
 
 struct TrendView: View {
     @Query private var blocks: [Block]
+    @ObservedObject private var store = StoreKitManager.shared
     @State private var refreshCounter: Int = 0
+    @State private var showProUpgrade = false
 
     private let calendar = Calendar(identifier: .gregorian)
 
@@ -69,8 +71,19 @@ struct TrendView: View {
                             efficiencyCard
 
                             // Recent weeks / months drill-down
-                            TrendPreviewCard(title: "Recent Weeks", stats: weeklyStats, frequency: .week, limit: 3)
-                            TrendPreviewCard(title: "Recent Months", stats: monthlyStats, frequency: .month, limit: 3)
+                            if store.isProUnlocked {
+                                TrendPreviewCard(title: "Recent Weeks", stats: weeklyStats, frequency: .week, limit: 3)
+                                TrendPreviewCard(title: "Recent Months", stats: monthlyStats, frequency: .month, limit: 3)
+                            } else {
+                                // Show current week/month only, lock the rest
+                                if let current = weeklyStats.first {
+                                    TrendPreviewCard(title: "This Week", stats: [current], frequency: .week, limit: 1)
+                                }
+                                ProLockedBanner(feature: "Full Trend History") {
+                                    showProUpgrade = true
+                                }
+                                .flexErrnCardStyle()
+                            }
                         }
                         .padding()
                         .padding(.bottom, 32)
@@ -81,6 +94,11 @@ struct TrendView: View {
                 }
             }
             .navigationTitle("Trends")
+            .sheet(isPresented: $showProUpgrade) {
+                NavigationStack {
+                    ProUpgradeView()
+                }
+            }
         }
     }
 

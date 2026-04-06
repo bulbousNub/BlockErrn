@@ -5,11 +5,13 @@ import SafariServices
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Query private var settings: [AppSettings]
+    @ObservedObject private var store = StoreKitManager.shared
     @State private var irsRateText: String = ""
     @State private var selectedAppearance: AppearancePreference = .system
     
     @State private var showExpenseCategoryEditor: Bool = false
     @State private var showGitHub: Bool = false
+    @State private var showProUpgrade: Bool = false
     @State private var reminderBeforeStartMinutes: Int = 45
     @State private var reminderBeforeEndMinutes: Int = 15
     @State private var tipReminderHours: Int = 24
@@ -18,8 +20,13 @@ struct SettingsView: View {
         NavigationStack {
             ZStack {
                 BlockErrnTheme.backgroundGradient.ignoresSafeArea()
+                GeometryReader { geo in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
+                        if !store.isProUnlocked {
+                            proTile
+                        }
+
                         SectionCard(title: "Appearance") {
                             Picker("Theme", selection: $selectedAppearance) {
                                 ForEach(AppearancePreference.allCases) { appearance in
@@ -133,6 +140,10 @@ struct SettingsView: View {
                             }
                         }
 
+                        if store.isProUnlocked {
+                            proTile
+                        }
+
                         SectionCard {
                             NavigationLink {
                                 EraseDataView()
@@ -153,6 +164,8 @@ struct SettingsView: View {
                     }
                     .padding()
                     .padding(.bottom, 32)
+                    .frame(width: geo.size.width)
+                }
                 }
             }
             .navigationTitle("Settings")
@@ -168,12 +181,72 @@ struct SettingsView: View {
                 SafariView(url: URL(string: "https://github.com/bulbousNub/BlockErrn/")!)
                     .ignoresSafeArea()
             }
+            .sheet(isPresented: $showProUpgrade) {
+                NavigationStack {
+                    ProUpgradeView()
+                }
+            }
             .onAppear { loadSettings() }
             .task(id: settings.first?.id) { loadSettings() }
             .onChange(of: settings.first?.preferredAppearanceRaw) { _ in loadSettings() }
         }
     }
 
+
+    private var proTile: some View {
+        SectionCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "star.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.yellow)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(store.isProUnlocked ? "Pro Unlocked" : "Upgrade to Pro")
+                            .font(.headline)
+                        Text(store.isProUnlocked
+                             ? "You have full access to all features."
+                             : "Receipt capture, full trends, iCloud backup, PDF reports, and more.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                }
+
+                if !store.isProUnlocked {
+                    Button {
+                        showProUpgrade = true
+                    } label: {
+                        HStack {
+                            Text("View Plans")
+                                .fontWeight(.semibold)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color(.secondarySystemBackground))
+                                .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button {
+                    Task { await store.restorePurchases() }
+                } label: {
+                    Text("Restore Purchases")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
 
     private func saveIRSRate() {
         guard let cents = Int(irsRateText), cents >= 0 else { return }
