@@ -1,45 +1,61 @@
-# Flex Earnings Tracker (BlockErrn)
+# BlockErrn
 
-BlockErrn is a SwiftUI + SwiftData assistant app for gig workers who need to track each block of work, log time, mileage, expenses, and keep profit/loss data well organized. The interface is built with gradients, ultra-thin materials, and capsule buttons to evoke a liquid-glass dashboard while minimizing distraction from capturing real receipts, numbers, and notes.
+BlockErrn is a SwiftUI + SwiftData earnings tracker built for gig delivery drivers. It tracks blocks of work, mileage, expenses, and profit across iPhone, Apple Watch, and CarPlay — giving you a complete financial picture from pickup to tip.
 
-## Primary Functionality
+## Features
 
-- **Blocks as the core unit** – Each block stores scheduling metadata (date, duration, route points, start/end times) and financial snapshots (base pay, tips, mileage deduction, total profit). Blocks open to a detail view that shows expenses, audit entries, and totals with shiny glassy cards. `BlockDetailView.swift`, `TrendView.swift`, and `CalculatorView.swift` orchestrate how these items update and stay in sync with SwiftData.
-- **Expense tracking** – Expenses belong to blocks and support categories, amounts, notes, timestamps, optional profit exclusion, and receipt images. The categories list is editable in `SettingsView`, and each expense is editable from the block detail flow. Expense persistence is provided by `Expense` entries in `DomainModels.swift`.
-- **Receipt capture & storage** – The app embeds `ReceiptScanner.swift`, which attempts to use VisionKit’s document scanner or falls back to the camera picker. Images are compressed to JPEG and saved locally through `ReceiptStorage.swift`, allowing inline thumbs and full-screen inspection without duplicating the file. Receipt file names are referenced in the Expense model and included in exports.
-- **Backup/Import** – `DataView.swift` packages all blocks, expenses, audits, and settings into a JSON payload (`BackupPayload`). For exports, the JSON plus receipts are zipped via the embedded ZIPFoundation sources (see `Flex Earnings Tracker/ZIPFoundation`). Importers accept either the new `.zip` format or legacy JSON, restoring structured data and receipt files atomically.
-- **Data exports** – CSV exports let you pick which columns to include (IDs, durations, profit, audit entries, etc.). The UI exposes checkboxes, and the export runs through SwiftData blocks that form rows with ISO-formatted timestamps, decimals, and JSON-wrapped arrays for nested data.
-- **Appearance & About** – Settings let you choose system/light/dark, edit expense categories through a dedicated sheet, tweak the IRS mileage rate, erase data, and review an About/Licenses section that cites ZIPFoundation’s MIT license. Theme helpers in `BlockErrnTheme.swift` keep every card and tile consistent.
-- **Notifications & location** – `NotificationManager.swift` schedules local alerts 15 minutes before and at each block’s completion time. Onboarding prompts (in `OnboardingView.swift`) orchestrate notification, location, and background access so the `MileageTracker.swift` can keep collecting route points.
-- **Work mode** – `WorkModeCoordinator.swift` centralizes how the app transitions between calculator, work mode, and the block log, ensuring the correct sheet/presentation is active when blocks are accepted or retrieved.
+### iPhone
 
-## Architecture Highlights
+- **Block management** — Create, schedule, and track blocks with start/end times, base pay, tips, mileage deduction, and net profit. Blocks open to a detail view with expenses, audit history, and glassy summary cards.
+- **Live GPS mileage tracking** — Background location tracking records route points while you drive. Mileage is converted to an IRS standard deduction automatically using whole-mile rounding.
+- **Expense tracking** — Log expenses per block with categories, amounts, notes, timestamps, and optional profit exclusion. Categories are fully customizable in Settings.
+- **Receipt capture** — Scan receipts using VisionKit's document scanner (or camera fallback). Images are compressed and stored locally with inline thumbnails and full-screen inspection.
+- **Trends & analytics** — Weekly and monthly earnings charts, live metric cards for current period gross/mileage, interactive chart overlays, and drill-down views for historical data.
+- **Live Activities** — Lock Screen and Dynamic Island widget showing real-time mileage, scheduled block times, and tracking status. Updates every 5 seconds during active blocks.
+- **Notifications** — Configurable reminders before block start, before block end, at block end, and a tip reminder (default 24 hours post-block). Non-tip reminders are automatically cancelled when a block is marked complete.
+- **Backup & restore** — Export all blocks, expenses, audits, settings, and receipt images as a ZIP archive. Import from ZIP or legacy JSON. Receipts are restored atomically alongside structured data.
+- **iCloud backup** — Automatic cloud backup of all data with download/restore capability. Auto-backup on app background when enabled.
+- **CSV export** — Configurable column selection for spreadsheet exports. Includes ISO timestamps, decimals, and JSON-wrapped arrays for nested data like expenses and audit entries.
+- **Appearance** — System, light, and dark themes. Gradient backgrounds, ultra-thin materials, and capsule buttons throughout.
 
-1. **SwiftUI + SwiftData** – Views rely on `@Query`/`@Environment(\.modelContext)` to stay reactive. Models (`Block`, `Expense`, `AuditEntry`, `AppSettings`) live in `DomainModels.swift`. Computed properties in these models supply totals, durations, formatted timestamps, and audit-induced state.
-2. **Local storage & receipt management** – Receipt data is saved in Application Support via `ReceiptStorage`. Backup functions reference the file names so the archive can copy the actual JPEGs when creating the zipped backup. Import restores them under the same names.
-3. **Theming** – `BlockErrnTheme` defines gradients, hero gradients, and shadow colors used across cards, nav bars, and hero tiles. The `.flexErrnCardStyle()` modifier keeps card trains ready for any section, and new hero tiles queue under that design.
-4. **Navigation & sheets** – `NavigationStack` structures each tab, modals, and edit sheets. The block detail, expense editor, license list, and onboarding flows all rely on stacks and detents for a consistent navigation vocabulary.
+### Apple Watch
+
+- **Block list** — View active and upcoming blocks with sync status and iPhone reachability indicator.
+- **Create blocks** — Step-by-step flow for date, start time, end time, and base pay. Start time auto-rounds to the next 15-minute interval. Handles overnight blocks.
+- **Work mode** — Three-page vertical layout with live stats (gross, miles, deduction, profit), controls (package/stop counters, GPS toggle, end block), and a route map with tap-to-expand.
+- **Base pay adjustment** — Quick +/- $5 buttons with Digital Crown for $0.25 fine-tuning.
+- **Block completion summary** — After ending a block, a snapshot summary shows final stats before returning to the home screen.
+- **Two-way sync** — All changes sync between Watch and iPhone via WatchConnectivity. Post-command sync ensures blocks created on Watch appear immediately on iPhone.
+
+### CarPlay
+
+- **Dashboard** — Active and upcoming blocks with auto-refresh.
+- **In-car controls** — Start/stop GPS tracking, end blocks, and view real-time mileage and profit directly from the CarPlay interface.
+- **Route map** — Live route overlay while tracking.
+
+## Architecture
+
+- **SwiftUI + SwiftData** — Views use `@Query` and `@Environment(\.modelContext)` for reactivity. Models (`Block`, `Expense`, `AuditEntry`, `AppSettings`) live in `DomainModels.swift`.
+- **Local storage** — Receipt images saved in Application Support via `ReceiptStorage`. Backup archives include actual JPEGs alongside JSON data.
+- **Theming** — `BlockErrnTheme` defines gradients, shadows, and card styles. The `.flexErrnCardStyle()` modifier provides consistent card presentation.
+- **Navigation** — `NavigationStack` with sheets and detents. `WorkModeCoordinator` manages transitions between calculator, work mode, and block log.
+- **Watch connectivity** — `PhoneWatchSessionManager` (iPhone) and `WatchSessionManager` (Watch) handle bidirectional command/sync messaging.
 
 ## Getting Started
 
-1. Open `Flex Earnings Tracker.xcodeproj` (requires Xcode 15 and iOS 17+).
-2. Select the `BlockErrn` scheme and run on a device (preferred for VisionKit/receipt scanning). The simulator uses the fallback camera picker.
-3. Grant notification/location permissions during onboarding. Without these, the app only functions in manual calculator/log mode.
-4. Create a block via the calculator or new block sheet, accept it, then afford yourself to add expenses, toggle inclusion from profit, capture receipts, and review totals.
-
-## Working with Data
-
-- **Backing up** – Navigate to the Data tab and tap “Backup BlockErrn Data.” This writes `BlockErrnBackup.json` plus any referenced receipt JPEGs into a ZIP archive using ZIPFoundation’s `Archive`.
-- **Importing** – Use the file importer to select either a ZIP backup (preferred) or legacy JSON. The importer decodes `BackupPayload` and writes the receipt files via `ReceiptStorage`. After import, SwiftData context is saved and reflections appear in the Logs/Blocks automatically.
-- **Streaming CSV exports** – Toggle columns and tap “Export to CSV” to generate spreadsheets via the native file exporter. CSV rows are assembled by `makeCSVText()` and include nested JSON for collections like expenses and audit entries.
-
-## Testing & Validation
-
-- `BlockErrnTests.swift` / `BlockErrnUITests.swift` exist but are currently placeholders; manual validation is strongly recommended.  
-- Run `xcodebuild -scheme BlockErrn -destination 'platform=iOS Simulator,name=iPhone 15' build` to ensure the project compiles after changes.  
-- For quick checks, use `PreviewProvider` definitions (e.g., in `DataView.swift`) to inspect backups or cards without running the full scheme.
+1. Open `Flex Earnings Tracker.xcodeproj` in Xcode 15+ (requires iOS 17+, watchOS 10+).
+2. Select the `BlockErrn` scheme and run on a device (recommended for VisionKit, GPS, and Live Activities).
+3. Grant notification and location permissions during onboarding.
+4. Create a block, start tracking, and log expenses as you go.
 
 ## Third-Party Software
 
-- **ZIPFoundation** – MIT License (see `ZIPFoundation/Resources/PrivacyInfo.xcprivacy` and the bundled license text). Credit is surfaced through Settings → About → Licenses. The MIT notice must remain packaged with any redistribution of the app to comply with the license.
+- **ZIPFoundation** — MIT License. Used for backup/restore ZIP archive creation. See Settings > About > Licenses for the full notice.
 
+## License
+
+Copyright 2025 TeJay Guilliams. Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
+
+## Disclaimer
+
+BlockErrn is an independent project and is not affiliated with, endorsed by, or sponsored by Amazon.com, Inc. or any of its subsidiaries, including Amazon Flex.

@@ -125,6 +125,13 @@
 			);
 			target = D19631112F72C37700766B99 /* BlockErrn */;
 		};
+		D1BA076D2F81DD5B00670B1F /* Exceptions for "Flex Earnings Tracker" folder in "BlockErrn" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ZIPFoundation/Resources/PrivacyInfo.xcprivacy,
+			);
+			target = D19631112F72C37700766B99 /* BlockErrn */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -155,6 +162,7 @@
 		D19631142F72C37700766B99 /* Flex Earnings Tracker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				D1BA076D2F81DD5B00670B1F /* Exceptions for "Flex Earnings Tracker" folder in "BlockErrn" target */,
 				D16BD4DB2F805175003B8986 /* Exceptions for "Flex Earnings Tracker" folder in "BlockErrnWidgetsExtension" target */,
 			);
 			path = "Flex Earnings Tracker";
@@ -652,7 +660,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BlockErrnWidgets/Info.plist;
@@ -683,7 +691,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BlockErrnWidgets/Info.plist;
@@ -713,7 +721,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -746,7 +754,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -993,19 +1001,22 @@
 				CODE_SIGN_ENTITLEMENTS = "Flex Earnings Tracker/BackgroundModes.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "BlockErrn-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = BlockErrn;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
-				INFOPLIST_KEY_NSCameraUsageDescription = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Block​Errn uses the camera to scan receipts for your expense records.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "BlockErrn needs background location to estimate miles for each block.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "BlockErrn uses location to track the miles you drive during each block.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = NO;
+				INFOPLIST_KEY_NSMotionUsageDescription = "BlockErrn uses motion data to detect when you are in a vehicle so it can count IRS-eligible driving miles only.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Block​Errn uses your photo library to attach receipt images to expenses.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UIBackgroundModes = "";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
@@ -1041,19 +1052,22 @@
 				CODE_SIGN_ENTITLEMENTS = "Flex Earnings Tracker/BackgroundModes.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8B5Y76UV6F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "BlockErrn-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = BlockErrn;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
-				INFOPLIST_KEY_NSCameraUsageDescription = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Block​Errn uses the camera to scan receipts for your expense records.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "BlockErrn needs background location to estimate miles for each block.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "BlockErrn uses location to track the miles you drive during each block.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = NO;
+				INFOPLIST_KEY_NSMotionUsageDescription = "BlockErrn uses motion data to detect when you are in a vehicle so it can count IRS-eligible driving miles only.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Block​Errn uses your photo library to attach receipt images to expenses.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UIBackgroundModes = "";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";

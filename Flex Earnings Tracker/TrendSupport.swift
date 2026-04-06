@@ -59,6 +59,62 @@ struct PeriodStats: Identifiable {
     var totalStops: Int {
         blocks.compactMap(\.stopCount).reduce(0, +)
     }
+
+    // MARK: - Actual worked hours (userStartTime → userCompletionTime)
+
+    var actualWorkedMinutes: Int {
+        blocks.reduce(0) { total, block in
+            guard let start = block.userStartTime, let end = block.userCompletionTime else { return total }
+            return total + max(0, Int(end.timeIntervalSince(start) / 60))
+        }
+    }
+
+    var actualWorkedHours: Decimal {
+        Decimal(actualWorkedMinutes) / 60
+    }
+
+    var blocksWithActualTimes: Int {
+        blocks.filter { $0.userStartTime != nil && $0.userCompletionTime != nil }.count
+    }
+
+    // MARK: - Efficiency metrics
+
+    var packagesPerHour: Decimal {
+        guard actualWorkedHours > 0 else { return 0 }
+        return Decimal(totalPackages) / actualWorkedHours
+    }
+
+    var stopsPerHour: Decimal {
+        guard actualWorkedHours > 0 else { return 0 }
+        return Decimal(totalStops) / actualWorkedHours
+    }
+
+    var milesPerBlock: Decimal {
+        guard !blocks.isEmpty else { return 0 }
+        return totalMiles / Decimal(blocks.count)
+    }
+
+    var profitPerMile: Decimal {
+        guard totalMiles > 0 else { return 0 }
+        return totalProfit / totalMiles
+    }
+
+    // MARK: - Expense category breakdown
+
+    var expensesByCategory: [(category: String, total: Decimal)] {
+        var categoryTotals: [String: Decimal] = [:]
+        for block in blocks {
+            for expense in block.expenses {
+                let name = ExpenseCategory(rawValue: expense.categoryRaw)?.displayName ?? expense.categoryRaw
+                categoryTotals[name, default: 0] += expense.amount
+            }
+        }
+        return categoryTotals
+            .map { (category: $0.key, total: $0.value) }
+            .sorted { $0.total > $1.total }
+    }
+
+    var blockCount: Int { blocks.count }
 }
 
 enum TrendFrequency {
@@ -83,19 +139,24 @@ struct ChartCallout: View {
 
     var body: some View {
         if let stat {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(stat.label)
-                        .font(.subheadline)
-                        .bold()
-                    Text("Gross \(formatCurrencyDecimal(stat.grossTotal)) • Tips \(formatCurrencyDecimal(stat.tipTotal))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(stat.label)
+                    .font(.subheadline)
+                    .bold()
+                HStack {
+                    Text("Gross \(formatCurrencyDecimal(stat.grossTotal))")
+                    Text("•")
+                    Text("Tips \(formatCurrencyDecimal(stat.tipTotal))")
                 }
-                Spacer()
-                Text(formatMiles(stat.totalMiles))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                HStack {
+                    Text("Profit \(formatCurrencyDecimal(stat.totalProfit))")
+                    Text("•")
+                    Text(formatMiles(stat.totalMiles))
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             .padding(10)
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -347,7 +408,7 @@ struct TrendBlockRow: View {
     }
 
     private func isUpcoming(_ block: Block) -> Bool {
-        startDate(for: block) > Date()
+        block.status == .accepted && startDate(for: block) > Date()
     }
 
     private func formatCurrency(_ value: Decimal) -> String {

@@ -10,6 +10,7 @@ struct BlockErrnApp: App {
 
     init() {
         _ = ModelStorage.shared
+        _ = StoreKitManager.shared
         PhoneWatchSessionManager.shared.activateSession()
     }
 

@@ -369,15 +369,18 @@ struct CalculatorView: View {
 
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Plan with confidence")
+            Text("Welcome to BlockErrn")
                 .font(.headline)
-            Text("Use the tiles below to model your next trip—the tracker handles gross, tips, mileage, and reminders.")
+            Text("This is your home screen. Use the form below to enter block details — base pay, duration, tips, and mileage — then tap Accept to log a block.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text("Tap Got it once you’ve reviewed the quick tips so this card can stay out of the way.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                Label("**Active block** appears here when you start one — track mileage and expenses in real time.", systemImage: "bolt.fill")
+                Label("**Upcoming blocks** show below when a block is accepted but hasn't started yet.", systemImage: "calendar")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
             HStack {
                 Spacer()
                 Button("Got it") {

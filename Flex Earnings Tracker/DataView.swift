@@ -4,100 +4,19 @@ import UniformTypeIdentifiers
 import UIKit
 
 struct DataView: View {
-    private enum ExportField: String, CaseIterable, Identifiable {
-        case blockID
-        case date
-        case durationMinutes
-        case status
-        case notes
-        case basePay
-        case hasTips
-        case tipsAmount
-        case grossPayout
-        case grossPerHour
-        case scheduledStart
-        case scheduledEnd
-        case userStartTime
-        case userCompletionTime
-        case roundedMiles
-        case rateSnapshot
-        case mileageDeduction
-        case expensesTotal
-        case totalProfit
-        case profitPerHour
-        case expenses
-        case auditEntries
-
-        var id: String { rawValue }
-
-        var displayName: String {
-            switch self {
-            case .blockID: return "Block ID"
-            case .date: return "Date"
-            case .durationMinutes: return "Duration"
-            case .status: return "Status"
-            case .notes: return "Notes"
-            case .basePay: return "Base Pay"
-            case .hasTips: return "Has Tips"
-            case .tipsAmount: return "Tips Amount"
-            case .grossPayout: return "Gross Payout"
-            case .grossPerHour: return "Gross $/hr"
-            case .scheduledStart: return "Scheduled Start"
-            case .scheduledEnd: return "Scheduled End"
-            case .userStartTime: return "User Start Time"
-            case .userCompletionTime: return "User Completion Time"
-            case .roundedMiles: return "Whole Miles"
-            case .rateSnapshot: return "Rate Snapshot"
-            case .mileageDeduction: return "Mileage Deduction"
-            case .expensesTotal: return "Expenses Total"
-            case .totalProfit: return "Total Profit"
-            case .profitPerHour: return "Total Profit $/hr"
-            case .expenses: return "Expenses"
-            case .auditEntries: return "Audit Entries"
-            }
-        }
-    }
-
-    private static let exportFieldOrder: [ExportField] = [
-        .blockID,
-        .date,
-        .durationMinutes,
-        .status,
-        .notes,
-        .basePay,
-        .hasTips,
-        .tipsAmount,
-        .grossPayout,
-        .grossPerHour,
-        .scheduledStart,
-        .scheduledEnd,
-        .userStartTime,
-        .userCompletionTime,
-        .roundedMiles,
-        .rateSnapshot,
-        .mileageDeduction,
-        .expensesTotal,
-        .totalProfit,
-        .profitPerHour,
-        .expenses,
-        .auditEntries
-    ]
     @Environment(\.modelContext) private var context
     @Query private var settings: [AppSettings]
     @Query private var blocks: [Block]
     @ObservedObject private var iCloudManager = ICloudBackupManager.shared
+    @ObservedObject private var store = StoreKitManager.shared
 
     @State private var shareableBackup: ShareableBackup?
-    @State private var showCSVExporter: Bool = false
-    @State private var csvDocument: CSVDocument = .empty
-    @State private var selectedExportFields: Set<ExportField> = Set(Self.exportFieldOrder)
     @State private var showImporter: Bool = false
+    @State private var showProUpgrade: Bool = false
     @State private var backupMessage: String?
     @State private var backupMessageStyle: DataMessageStyle = .info
     @State private var importMessage: String?
     @State private var importMessageStyle: DataMessageStyle = .info
-    @State private var exportMessage: String?
-    @State private var exportMessageStyle: DataMessageStyle = .info
     @State private var lastBackupDate: Date?
     @State private var useZipBackup: Bool = true
 
@@ -107,12 +26,13 @@ struct DataView: View {
                 BlockErrnTheme.backgroundGradient.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    dataCard
-                    exportTile
-                    backupTile
-                    importTile
-                }
+                    VStack(spacing: 24) {
+                        dataCard
+                        csvTile
+                        reportTile
+                        backupTile
+                        importTile
+                    }
                     .padding()
                     .padding(.bottom, 32)
                 }
@@ -128,17 +48,9 @@ struct DataView: View {
             ) { result in
                 handleImport(result)
             }
-            .fileExporter(
-                isPresented: $showCSVExporter,
-                document: csvDocument,
-                contentType: .commaSeparatedText,
-                defaultFilename: defaultCSVFilename()
-            ) { result in
-                switch result {
-                case .success(let url):
-                    setExportMessage("CSV ready: \(url.lastPathComponent)", style: .success)
-                case .failure(let error):
-                    setExportMessage("CSV failed: \(error.localizedDescription)", style: .error)
+            .sheet(isPresented: $showProUpgrade) {
+                NavigationStack {
+                    ProUpgradeView()
                 }
             }
             .onAppear {
@@ -147,6 +59,125 @@ struct DataView: View {
             }
         }
     }
+
+    // MARK: - Data Card
+
+    private var dataCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Data Management")
+                        .font(.title2)
+                        .bold()
+                    Text("Generate reports, export your data, and manage backups for your BlockErrn history.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "externaldrive.connected.to.line.below")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+            }
+            Text("Create branded PDF reports, export to CSV for spreadsheets, back up your data, or restore from a previous backup.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .flexErrnCardStyle()
+    }
+
+    // MARK: - Report Tile
+
+    private var reportTile: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Earnings Report")
+                        .font(.title3)
+                        .bold()
+                    Text("Generate a branded PDF report with earnings summaries, block logs, expense breakdowns, and efficiency metrics. Filter by date and status, then preview and share.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "doc.richtext")
+                    .font(.system(size: 36))
+                    .foregroundColor(.accentColor)
+            }
+            if store.isProUnlocked {
+                NavigationLink {
+                    ReportView()
+                } label: {
+                    HStack {
+                        Text("Generate Report")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color(.secondarySystemBackground))
+                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                    )
+                }
+                .buttonStyle(.plain)
+            } else {
+                ProLockedBanner(feature: "PDF Reports") {
+                    showProUpgrade = true
+                }
+            }
+        }
+        .flexErrnCardStyle()
+    }
+
+    // MARK: - CSV Tile
+
+    private var csvTile: some View {
+        NavigationLink {
+            CSVExportView()
+        } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Export to CSV")
+                            .font(.title3)
+                            .bold()
+                        Text("Share your data with other tools or spreadsheets by exporting every block, expense, and audit entry to a CSV you can open anywhere.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 36))
+                        .foregroundColor(.accentColor)
+                }
+                HStack {
+                    Text("Export CSV")
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                }
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color(.secondarySystemBackground))
+                        .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                )
+            }
+            .flexErrnCardStyle()
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Backup Tile
 
     private var backupTile: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -174,7 +205,21 @@ struct DataView: View {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 4) {
                         backupRow(label: "Local", date: lastBackupDate)
-                        backupRow(label: "iCloud", date: iCloudManager.lastBackupDate)
+                        if store.isProUnlocked {
+                            backupRow(label: "iCloud", date: iCloudManager.lastBackupDate)
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "icloud.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text("iCloud")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text("Unlock with BlockErrn Pro")
+                                    .font(.caption)
+                                    .foregroundStyle(.yellow)
+                            }
+                        }
                     }
                     Spacer()
                     backupFormatToggle
@@ -201,28 +246,34 @@ struct DataView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            NavigationLink {
-                ICloudBackupView()
-            } label: {
-                HStack {
-                    Image(systemName: "icloud")
-                    Text("iCloud Backup")
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Image(systemName: "chevron.right")
+            if store.isProUnlocked {
+                NavigationLink {
+                    ICloudBackupView()
+                } label: {
+                    HStack {
+                        Image(systemName: "icloud")
+                        Text("iCloud Backup")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color(.secondarySystemBackground))
+                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                    )
                 }
-                .font(.headline)
-                .foregroundStyle(.primary)
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
-                        .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
-                )
+                .buttonStyle(.plain)
+            } else {
+                ProLockedBanner(feature: "iCloud Backup") {
+                    showProUpgrade = true
+                }
             }
-            .buttonStyle(.plain)
-            }
-            .flexErrnCardStyle()
+        }
+        .flexErrnCardStyle()
     }
 
     private var backupFormatToggle: some View {
@@ -239,6 +290,8 @@ struct DataView: View {
         }
         .onChange(of: useZipBackup) { storeBackupFormatPreference($0) }
     }
+
+    // MARK: - Import Tile
 
     private var importTile: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -280,96 +333,7 @@ struct DataView: View {
         .flexErrnCardStyle()
     }
 
-    private var exportTile: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Export to CSV")
-                        .font(.title3)
-                        .bold()
-                    Text("Share your data with other tools or spreadsheets by exporting every block, expense, and audit entry to a CSV you can open anywhere. Use the checkboxes below to control which columns are included before tapping Export.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                Image(systemName: "doc.on.doc")
-                    .font(.system(size: 36))
-                    .foregroundColor(.accentColor)
-            }
-
-            exportFieldSelection
-
-            Button {
-                exportData()
-            } label: {
-                Label("Export to CSV", systemImage: "square.and.arrow.up.on.square")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.accentColor)
-
-            if let message = exportMessage {
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(exportMessageStyle.color)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .flexErrnCardStyle()
-    }
-
-    private var exportFieldSelection: some View {
-        let columns = [GridItem(.flexible()), GridItem(.flexible())]
-        return LazyVGrid(columns: columns, spacing: 12) {
-            ForEach(Self.exportFieldOrder) { field in
-            Toggle(isOn: Binding(
-                get: { selectedExportFields.contains(field) },
-                set: { isSelected in
-                    if isSelected {
-                        selectedExportFields.insert(field)
-                    } else {
-                        selectedExportFields.remove(field)
-                    }
-                }
-            )) {
-                Text(field.displayName)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-            }
-            .toggleStyle(CheckboxToggleStyle())
-            }
-        }
-    }
-
-    private var dataCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Data Management")
-                        .font(.title2)
-                        .bold()
-                    Text("Manage backups, imports, exports, and destructive resets for your BlockErrn history.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                Image(systemName: "externaldrive.connected.to.line.below")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-            }
-            Text("Use these controls to share data, restore previous backups, or erase everything when needed.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-        }
-        .flexErrnCardStyle()
-    }
+    // MARK: - Backup Logic
 
     private func backupData() {
         do {
@@ -379,7 +343,6 @@ struct DataView: View {
             recordBackupDate(now)
             backupMessage = "Backup ready"
             backupMessageStyle = .success
-            // Mirror to iCloud if enabled
             triggerICloudBackup()
         } catch {
             backupMessage = "Backup failed: \(error.localizedDescription)"
@@ -441,14 +404,6 @@ struct DataView: View {
         }
     }
 
-    private var backupStatusColor: Color {
-        let localDate = lastBackupDate
-        let iCloudDate = iCloudManager.lastBackupDate
-        let mostRecent = [localDate, iCloudDate].compactMap { $0 }.max()
-        guard let date = mostRecent else { return .red }
-        return Self.colorForBackupAge(date)
-    }
-
     private static func colorForBackupAge(_ date: Date) -> Color {
         let age = Date().timeIntervalSince(date)
         let day = TimeInterval(24 * 60 * 60)
@@ -464,6 +419,8 @@ struct DataView: View {
         formatter.timeStyle = .short
         return formatter
     }()
+
+    // MARK: - Import Logic
 
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
@@ -490,58 +447,9 @@ struct DataView: View {
         }
     }
 
-    private func defaultBackupFilename() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "FlexEarningsBackup-\(formatter.string(from: Date())).zip"
-    }
-
-    private func defaultCSVFilename() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "BlockErrnData-\(formatter.string(from: Date())).csv"
-    }
-
-    private func makeCSVText() -> String {
-        let selectedFields = Self.exportFieldOrder.filter { selectedExportFields.contains($0) }
-        guard !selectedFields.isEmpty else { return "" }
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-
-        let headerRow = selectedFields.map { csvEscaped($0.displayName) }.joined(separator: ",")
-
-        let rows = blocks.map { block -> String in
-            let scheduledStart = block.startTime ?? block.date
-            let scheduledEnd = block.endTime ?? scheduledStart.addingTimeInterval(TimeInterval(max(1, block.durationMinutes) * 60))
-            let grossPayout = block.grossPayout
-            let durationHours = Decimal(max(1, block.durationMinutes)) / 60
-            let grossPerHour = durationHours > 0 ? grossPayout / durationHours : grossPayout
-            let totalProfit = block.totalProfit
-            let profitPerHour = durationHours > 0 ? totalProfit / durationHours : totalProfit
-            let expensesTotal = block.additionalExpensesTotal
-            let mileageDeduction = block.mileageDeduction
-            let roundedMiles = block.roundedMiles
-            let context = BlockCSVContext(
-                block: block,
-                scheduledStart: scheduledStart,
-                scheduledEnd: scheduledEnd,
-                durationHours: durationHours,
-                grossPayout: grossPayout,
-                grossPerHour: grossPerHour,
-                totalProfit: totalProfit,
-                profitPerHour: profitPerHour,
-                expensesTotal: expensesTotal,
-                mileageDeduction: mileageDeduction,
-                roundedMiles: roundedMiles
-            )
-
-            let values = selectedFields.map { fieldValue(for: $0, context: context, formatter: formatter) }
-            return values.map(csvEscaped).joined(separator: ",")
-        }
-
-        let combined = ([headerRow] + rows).joined(separator: "\n")
-        return combined
+    private func setImportMessage(_ text: String, style: DataMessageStyle) {
+        importMessage = text
+        importMessageStyle = style
     }
 
     private func readBackupData(from url: URL) throws -> Data {
@@ -559,123 +467,10 @@ struct DataView: View {
         return try Data(contentsOf: url)
     }
 
-    private func fieldValue(for field: ExportField, context: BlockCSVContext, formatter: DateFormatter) -> String {
-        switch field {
-        case .blockID:
-            return context.block.id.uuidString
-        case .date:
-            return isoString(for: context.block.date, formatter: formatter)
-        case .durationMinutes:
-            return "\(context.block.durationMinutes)"
-        case .status:
-            return context.block.statusRaw
-        case .notes:
-            return context.block.notes ?? ""
-        case .basePay:
-            return decimalString(context.block.grossBase)
-        case .hasTips:
-            return context.block.hasTips ? "true" : "false"
-        case .tipsAmount:
-            return decimalString(context.block.tipsAmount ?? 0)
-        case .grossPayout:
-            return decimalString(context.grossPayout)
-        case .grossPerHour:
-            return decimalString(context.grossPerHour)
-        case .scheduledStart:
-            return isoString(for: context.scheduledStart, formatter: formatter)
-        case .scheduledEnd:
-            return isoString(for: context.scheduledEnd, formatter: formatter)
-        case .userStartTime:
-            return isoString(for: context.block.userStartTime, formatter: formatter)
-        case .userCompletionTime:
-            return isoString(for: context.block.userCompletionTime, formatter: formatter)
-        case .roundedMiles:
-            return decimalString(context.roundedMiles)
-        case .rateSnapshot:
-            return decimalString(context.block.irsRateSnapshot)
-        case .mileageDeduction:
-            return decimalString(context.mileageDeduction)
-        case .expensesTotal:
-            return decimalString(context.expensesTotal)
-        case .totalProfit:
-            return decimalString(context.totalProfit)
-        case .profitPerHour:
-            return decimalString(context.profitPerHour)
-        case .expenses:
-            return jsonString(context.block.expenses.map { ExpenseCSV(categoryRaw: $0.categoryRaw, amount: $0.amount, note: $0.note, createdAt: $0.createdAt) })
-        case .auditEntries:
-            return jsonString(context.block.auditEntries.map { AuditCSV(timestamp: $0.timestamp, actionRaw: $0.actionRaw, field: $0.field, oldValue: $0.oldValue, newValue: $0.newValue, note: $0.note) })
-        }
-    }
-
-    private struct BlockCSVContext {
-        let block: Block
-        let scheduledStart: Date
-        let scheduledEnd: Date
-        let durationHours: Decimal
-        let grossPayout: Decimal
-        let grossPerHour: Decimal
-        let totalProfit: Decimal
-        let profitPerHour: Decimal
-        let expensesTotal: Decimal
-        let mileageDeduction: Decimal
-        let roundedMiles: Decimal
-    }
-
-    private struct CheckboxToggleStyle: ToggleStyle {
-        func makeBody(configuration: Configuration) -> some View {
-            Button {
-                configuration.isOn.toggle()
-            } label: {
-                HStack {
-                    Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
-                        .foregroundColor(configuration.isOn ? .accentColor : .secondary)
-                    configuration.label
-                    Spacer()
-                }
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private func isoString(for date: Date?, formatter: DateFormatter) -> String {
-        guard let date = date else { return "" }
-        return formatter.string(from: date)
-    }
-
-    private func decimalString(_ value: Decimal) -> String {
-        NSDecimalNumber(decimal: value).stringValue
-    }
-
-    private func csvEscaped(_ value: String) -> String {
-        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
-        return "\"\(escaped)\""
-    }
-
-    private func jsonString<T: Encodable>(_ value: T) -> String {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(value),
-              let string = String(data: data, encoding: .utf8) else {
-            return ""
-        }
-        return string
-    }
-
-    private func setExportMessage(_ text: String, style: DataMessageStyle) {
-        exportMessage = text
-        exportMessageStyle = style
-    }
-
-    private func exportData() {
-        exportMessage = nil
-        csvDocument = CSVDocument(text: makeCSVText())
-        showCSVExporter = true
-    }
-
-    private func setImportMessage(_ text: String, style: DataMessageStyle) {
-        importMessage = text
-        importMessageStyle = style
+    private func defaultBackupFilename() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return "FlexEarningsBackup-\(formatter.string(from: Date())).zip"
     }
 
     private func makeBackupPayload() -> BackupPayload {
@@ -694,17 +489,17 @@ struct DataView: View {
                 createdAt: block.createdAt,
                 updatedAt: block.updatedAt,
                 expenses: block.expenses.map { expense in
-                ExpensePayload(
-                    id: expense.id,
-                    categoryRaw: expense.categoryRaw,
-                    amount: expense.amount,
-                    note: expense.note,
-                    createdAt: expense.createdAt,
-                    updatedAt: expense.updatedAt,
-                    receiptFileName: expense.receiptFileName,
-                    receiptData: ReceiptStorage.loadData(named: expense.receiptFileName)
-                )
-            },
+                    ExpensePayload(
+                        id: expense.id,
+                        categoryRaw: expense.categoryRaw,
+                        amount: expense.amount,
+                        note: expense.note,
+                        createdAt: expense.createdAt,
+                        updatedAt: expense.updatedAt,
+                        receiptFileName: expense.receiptFileName,
+                        receiptData: ReceiptStorage.loadData(named: expense.receiptFileName)
+                    )
+                },
                 auditEntries: block.auditEntries.map { audit in
                     AuditEntryPayload(
                         id: audit.id,
@@ -765,7 +560,7 @@ struct DataView: View {
         try FileManager.default.removeItem(at: jsonURL)
         return zipURL
     }
-    
+
     private func addReceiptFiles(to archive: Archive, payload: BackupPayload, tempDir: URL) throws {
         let fileManager = FileManager.default
         let receiptFileNames = payload.blocks
@@ -817,7 +612,6 @@ struct DataView: View {
             block.startTime = blockPayload.startTime
             block.endTime = blockPayload.endTime
             block.routePoints = blockPayload.routePoints
-
             block.userStartTime = blockPayload.userStartTime
             block.userCompletionTime = blockPayload.userCompletionTime
 
@@ -868,7 +662,7 @@ struct DataView: View {
                 includePreReminder: settingPayload.includePreReminder ?? true,
                 hasDismissedPlanCard: settingPayload.hasDismissedPlanCard ?? false,
                 expenseCategories: settingPayload.expenseCategoryDescriptors,
-                hasCompletedOnboarding: settingPayload.hasCompletedOnboarding ?? false,
+                hasCompletedOnboarding: true,
                 reminderBeforeStartMinutes: settingPayload.reminderBeforeStartMinutes ?? 45,
                 reminderBeforeEndMinutes: settingPayload.reminderBeforeEndMinutes ?? 15,
                 tipReminderHours: settingPayload.tipReminderHours ?? 24
@@ -879,10 +673,13 @@ struct DataView: View {
 
         try context.save()
     }
+
     private static let backupJSONFilename = "BlockErrnBackup.json"
     private static let backupFormatKey = "BlockErrnBackupFormatUseZip"
     private static let backupReceiptsFolder = "Receipts"
 }
+
+// MARK: - Supporting Types
 
 private struct ShareableBackup: Identifiable {
     let id = UUID()
@@ -974,48 +771,6 @@ private struct AppSettingsPayload: Codable {
     let reminderBeforeEndMinutes: Int?
     let tipReminderHours: Int?
     let expenseCategoryDescriptors: [ExpenseCategoryDescriptor]?
-}
-
-private struct CSVDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
-    var text: String
-
-    init(text: String) {
-        self.text = text
-    }
-
-    init(configuration: ReadConfiguration) throws {
-        guard let contents = configuration.file.regularFileContents,
-              let string = String(data: contents, encoding: .utf8) else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        text = string
-    }
-
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = text.data(using: .utf8) ?? Data()
-        return FileWrapper(regularFileWithContents: data)
-    }
-
-    static var empty: CSVDocument {
-        CSVDocument(text: "")
-    }
-}
-
-private struct ExpenseCSV: Encodable {
-    let categoryRaw: String
-    let amount: Decimal
-    let note: String?
-    let createdAt: Date
-}
-
-private struct AuditCSV: Encodable {
-    let timestamp: Date
-    let actionRaw: String
-    let field: String?
-    let oldValue: String?
-    let newValue: String?
-    let note: String?
 }
 
 #Preview {

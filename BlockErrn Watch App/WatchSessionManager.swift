@@ -18,6 +18,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
     @Published var irsRate: String = "0.70"
     @Published var lastSyncDate: Date?
     @Published var isReachable: Bool = false
+    @Published var showingCompletionSummary: Bool = false
 
     private var session: WCSession?
 

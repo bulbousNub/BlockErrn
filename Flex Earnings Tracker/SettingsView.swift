@@ -1,13 +1,17 @@
 import SwiftUI
 import SwiftData
+import SafariServices
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Query private var settings: [AppSettings]
+    @ObservedObject private var store = StoreKitManager.shared
     @State private var irsRateText: String = ""
     @State private var selectedAppearance: AppearancePreference = .system
-    @State private var mileageSavedMessage: String?
+    
     @State private var showExpenseCategoryEditor: Bool = false
+    @State private var showGitHub: Bool = false
+    @State private var showProUpgrade: Bool = false
     @State private var reminderBeforeStartMinutes: Int = 45
     @State private var reminderBeforeEndMinutes: Int = 15
     @State private var tipReminderHours: Int = 24
@@ -16,8 +20,13 @@ struct SettingsView: View {
         NavigationStack {
             ZStack {
                 BlockErrnTheme.backgroundGradient.ignoresSafeArea()
+                GeometryReader { geo in
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
+                        if !store.isProUnlocked {
+                            proTile
+                        }
+
                         SectionCard(title: "Appearance") {
                             Picker("Theme", selection: $selectedAppearance) {
                                 ForEach(AppearancePreference.allCases) { appearance in
@@ -74,22 +83,16 @@ struct SettingsView: View {
                             TextField("IRS mileage rate (cents per mile)", text: $irsRateText)
                                 .keyboardType(.numberPad)
                                 .keyboardDoneToolbar()
-                                .onChange(of: irsRateText) { _ in mileageSavedMessage = nil }
-                                .onSubmit { save() }
+                                .onChange(of: irsRateText) { _ in saveIRSRate() }
                             Text("IRS rate is shown in cents (70 = $0.70/mi). It determines the mileage deduction when you add new blocks and matches the current IRS standard rate; changes are not retroactive but only affect future entries.")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            if let message = mileageSavedMessage {
-                                Text(message)
-                                    .font(.caption2)
-                                    .foregroundStyle(.green)
-                                }
                             }
 
                         SectionCard(title: "About BlockErrn") {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("A pocket-friendly ride-by-ride calculator with configurable themes, expense categories, and protected backups.")
+                                Text("Block-by-block earnings tracker for gig delivery drivers. Track mileage, expenses, and profit across iPhone, Apple Watch, and CarPlay.")
                                     .font(.subheadline)
                                     .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -113,7 +116,32 @@ struct SettingsView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+
+                                Button {
+                                    showGitHub = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "cat.fill")
+                                        Text("GitHub")
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Image(systemName: "arrow.up.right")
+                                    }
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .fill(Color(.secondarySystemBackground))
+                                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
+                        }
+
+                        if store.isProUnlocked {
+                            proTile
                         }
 
                         SectionCard {
@@ -136,17 +164,26 @@ struct SettingsView: View {
                     }
                     .padding()
                     .padding(.bottom, 32)
+                    .frame(width: geo.size.width)
+                }
                 }
             }
             .navigationTitle("Settings")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Save") { save() } }
-            }
+            
             .sheet(isPresented: $showExpenseCategoryEditor) {
                 if let appSettings = settings.first {
                     ExpenseCategoryEditor(appSettings: appSettings)
                 } else {
                     Text("No settings available.")
+                }
+            }
+            .sheet(isPresented: $showGitHub) {
+                SafariView(url: URL(string: "https://github.com/bulbousNub/BlockErrn/")!)
+                    .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showProUpgrade) {
+                NavigationStack {
+                    ProUpgradeView()
                 }
             }
             .onAppear { loadSettings() }
@@ -156,7 +193,62 @@ struct SettingsView: View {
     }
 
 
-    private func save() {
+    private var proTile: some View {
+        SectionCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "star.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.yellow)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(store.isProUnlocked ? "Pro Unlocked" : "Upgrade to Pro")
+                            .font(.headline)
+                        Text(store.isProUnlocked
+                             ? "You have full access to all features."
+                             : "Receipt capture, full trends, iCloud backup, PDF reports, and more.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                }
+
+                if !store.isProUnlocked {
+                    Button {
+                        showProUpgrade = true
+                    } label: {
+                        HStack {
+                            Text("View Plans")
+                                .fontWeight(.semibold)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color(.secondarySystemBackground))
+                                .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button {
+                    Task { await store.restorePurchases() }
+                } label: {
+                    Text("Restore Purchases")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func saveIRSRate() {
         guard let cents = Int(irsRateText), cents >= 0 else { return }
         let rate = Decimal(cents) / Decimal(100)
         if let s = settings.first {
@@ -166,7 +258,6 @@ struct SettingsView: View {
             context.insert(s)
         }
         try? context.save()
-        setMileageSavedMessage("Mileage rate saved")
     }
 
     private func syncAppearancePreference() {
@@ -187,10 +278,6 @@ struct SettingsView: View {
     private func formatCents(_ value: Decimal) -> String {
         let cents = NSDecimalNumber(decimal: value * Decimal(100)).intValue
         return "\(cents)"
-    }
-
-    private func setMileageSavedMessage(_ text: String) {
-        mileageSavedMessage = text
     }
 
     private func loadSettings() {
@@ -275,28 +362,48 @@ struct SettingsView: View {
 private struct LicensesView: View {
     private let licenseEntries: [LicenseEntry] = [
         LicenseEntry(
+            title: "BlockErrn",
+            subtitle: "Apache License 2.0",
+            licenseText:
+                """
+                Copyright 2025 TeJay Guilliams
+
+                Licensed under the Apache License, Version 2.0 (the "License"); \
+                you may not use this file except in compliance with the License. \
+                You may obtain a copy of the License at
+
+                    http://www.apache.org/licenses/LICENSE-2.0
+
+                Unless required by applicable law or agreed to in writing, software \
+                distributed under the License is distributed on an "AS IS" BASIS, \
+                WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. \
+                See the License for the specific language governing permissions and \
+                limitations under the License.
+                """
+        ),
+        LicenseEntry(
             title: "ZIPFoundation",
             subtitle: "MIT License",
             licenseText:
                 """
                 Copyright (c) 2017-2025 Thomas Zoechling (https://www.peakstep.com)
 
-                Permission is hereby granted, free of charge, to any person obtaining a copy
-                of this software and associated documentation files (the \"Software\"), to deal
-                in the Software without restriction, including without limitation the rights
-                to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-                copies of the Software, and to permit persons to whom the Software is
+                Permission is hereby granted, free of charge, to any person obtaining a copy \
+                of this software and associated documentation files (the \"Software\"), to deal \
+                in the Software without restriction, including without limitation the rights \
+                to use, copy, modify, merge, publish, distribute, sublicense, and/or sell \
+                copies of the Software, and to permit persons to whom the Software is \
                 furnished to do so, subject to the following conditions:
 
-                The above copyright notice and this permission notice shall be included in all
+                The above copyright notice and this permission notice shall be included in all \
                 copies or substantial portions of the Software.
 
-                THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-                IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-                FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-                AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-                LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-                OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+                THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR \
+                IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, \
+                FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE \
+                AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER \
+                LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, \
+                OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE \
                 SOFTWARE.
                 """
         )
@@ -318,6 +425,13 @@ private struct LicensesView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
+                    }
+
+                    SectionCard(title: "Disclaimer") {
+                        Text("BlockErrn is an independent project and is not affiliated with, endorsed by, or sponsored by Amazon.com, Inc. or any of its subsidiaries, including Amazon Flex.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding()
@@ -470,4 +584,14 @@ private struct ExpenseCategoryEditor: View {
         appSettings.expenseCategoryDescriptors = descriptors
         dismiss()
     }
+}
+
+private struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        SFSafariViewController(url: url)
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }

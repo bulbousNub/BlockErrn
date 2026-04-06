@@ -35,6 +35,8 @@ struct WatchHomeView: View {
             .onChange(of: sessionManager.workModeBlockID) {
                 if sessionManager.workModeBlockID != nil {
                     navigateToWorkMode = true
+                } else if !sessionManager.showingCompletionSummary {
+                    navigateToWorkMode = false
                 }
             }
             .onAppear {

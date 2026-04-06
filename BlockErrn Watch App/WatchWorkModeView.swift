@@ -29,6 +29,9 @@ struct WatchWorkModeView: View {
                 WatchBlockCompletionSummary(snapshot: snapshot) {
                     showSummary = false
                     completedSnapshot = nil
+                    showCompleteConfirmation = false
+                    sessionManager.showingCompletionSummary = false
+                    sessionManager.workModeBlockID = nil
                     dismiss()
                 }
             } else {
@@ -244,6 +247,7 @@ struct WatchWorkModeView: View {
                             routeData: viewModel.block?.routePointsEncoded
                         )
                         viewModel.completeBlock()
+                        sessionManager.showingCompletionSummary = true
                         showSummary = true
                     }
                     Button("Cancel", role: .cancel) {}
