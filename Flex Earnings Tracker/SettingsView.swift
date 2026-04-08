@@ -96,6 +96,49 @@ struct SettingsView: View {
                                     .font(.subheadline)
                                     .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
+
+                                NavigationLink {
+                                    ContactView()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "envelope.fill")
+                                        Text("Contact")
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .fill(Color(.secondarySystemBackground))
+                                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
+                                NavigationLink {
+                                    PrivacyPolicyView()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "hand.raised.fill")
+                                        Text("Privacy Policy")
+                                            .fontWeight(.semibold)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .fill(Color(.secondarySystemBackground))
+                                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+
                                 NavigationLink {
                                     LicensesView()
                                 } label: {
@@ -126,27 +169,6 @@ struct SettingsView: View {
                                             .fontWeight(.semibold)
                                         Spacer()
                                         Image(systemName: "arrow.up.right")
-                                    }
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                    .padding()
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                            .fill(Color(.secondarySystemBackground))
-                                            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
-                                    )
-                                }
-                                .buttonStyle(.plain)
-
-                                NavigationLink {
-                                    ContactView()
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "envelope.fill")
-                                        Text("Contact")
-                                            .fontWeight(.semibold)
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
                                     }
                                     .font(.headline)
                                     .foregroundStyle(.primary)

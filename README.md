@@ -14,9 +14,11 @@ BlockErrn is a SwiftUI + SwiftData earnings tracker built for gig delivery drive
 - **Live Activities** — Lock Screen and Dynamic Island widget showing real-time mileage, scheduled block times, and tracking status. Updates every 5 seconds during active blocks.
 - **Notifications** — Configurable reminders before block start, before block end, at block end, and a tip reminder (default 24 hours post-block). Non-tip reminders are automatically cancelled when a block is marked complete.
 - **Backup & restore** — Export all blocks, expenses, audits, settings, and receipt images as a ZIP archive. Import from ZIP or legacy JSON. Receipts are restored atomically alongside structured data.
-- **iCloud backup** — Automatic cloud backup of all data with download/restore capability. Auto-backup on app background when enabled.
+- **iCloud backup** — Automatic cloud backup of all data with download/restore capability. Auto-backup on app background when enabled. Includes option to permanently delete your iCloud backup.
 - **CSV export** — Configurable column selection for spreadsheet exports. Includes ISO timestamps, decimals, and JSON-wrapped arrays for nested data like expenses and audit entries.
 - **Appearance** — System, light, and dark themes. Gradient backgrounds, ultra-thin materials, and capsule buttons throughout.
+- **Contact** — In-app contact options for general inquiries, support requests, and bug reports. Bug reports link to GitHub Issues with an email fallback.
+- **Privacy policy** — Full privacy policy viewable in-app under Settings > About.
 
 ### Apple Watch
 
