@@ -96,7 +96,7 @@ struct ICloudBackupView: View {
                 disclaimerBullet("You can disable iCloud Backup at any time and your local data is unaffected.")
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private func disclaimerBullet(_ text: String) -> some View {
@@ -135,7 +135,7 @@ struct ICloudBackupView: View {
             .tint(.accentColor)
             .disabled(!iCloudManager.iCloudAvailable)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Status
@@ -171,7 +171,7 @@ struct ICloudBackupView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Backup Now
@@ -211,7 +211,7 @@ struct ICloudBackupView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Restore
@@ -263,7 +263,7 @@ struct ICloudBackupView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Delete Backup
@@ -314,7 +314,7 @@ struct ICloudBackupView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Helpers

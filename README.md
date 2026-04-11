@@ -39,13 +39,13 @@ BlockErrn is a SwiftUI + SwiftData earnings tracker built for gig delivery drive
 
 - **SwiftUI + SwiftData** — Views use `@Query` and `@Environment(\.modelContext)` for reactivity. Models (`Block`, `Expense`, `AuditEntry`, `AppSettings`) live in `DomainModels.swift`.
 - **Local storage** — Receipt images saved in Application Support via `ReceiptStorage`. Backup archives include actual JPEGs alongside JSON data.
-- **Theming** — `BlockErrnTheme` defines gradients, shadows, and card styles. The `.flexErrnCardStyle()` modifier provides consistent card presentation.
+- **Theming** — `BlockErrnTheme` defines gradients, shadows, and card styles. The `.blockErrnCardStyle()` modifier provides consistent card presentation.
 - **Navigation** — `NavigationStack` with sheets and detents. `WorkModeCoordinator` manages transitions between calculator, work mode, and block log.
 - **Watch connectivity** — `PhoneWatchSessionManager` (iPhone) and `WatchSessionManager` (Watch) handle bidirectional command/sync messaging.
 
 ## Getting Started
 
-1. Open `Flex Earnings Tracker.xcodeproj` in Xcode 15+ (requires iOS 17+, watchOS 10+).
+1. Open `BlockErrn.xcodeproj` in Xcode 15+ (requires iOS 17+, watchOS 10+).
 2. Select the `BlockErrn` scheme and run on a device (recommended for VisionKit, GPS, and Live Activities).
 3. Grant notification and location permissions during onboarding.
 4. Create a block, start tracking, and log expenses as you go.

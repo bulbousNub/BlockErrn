@@ -84,7 +84,7 @@ struct LogView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private func sectionCard(_ section: BlockSection) -> some View {
@@ -98,7 +98,7 @@ struct LogView: View {
                     .buttonStyle(.plain)
                 }
             }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     @ViewBuilder

@@ -134,7 +134,7 @@ struct CSVExportView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Field Selection
@@ -198,7 +198,7 @@ struct CSVExportView: View {
                 }
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Generate

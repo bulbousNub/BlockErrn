@@ -31,7 +31,7 @@ private struct BlockErrnCardModifier: ViewModifier {
 }
 
 extension View {
-    func flexErrnCardStyle() -> some View {
+    func blockErrnCardStyle() -> some View {
         modifier(BlockErrnCardModifier())
     }
 }

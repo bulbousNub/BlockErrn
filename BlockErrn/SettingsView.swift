@@ -76,13 +76,11 @@ struct SettingsView: View {
                                     onChange: updateTipReminderHours
                                 )
                             }
-                            .keyboardDoneToolbar()
                         }
 
                         SectionCard(title: "Mileage deduction rate (cents)") {
                             TextField("IRS mileage rate (cents per mile)", text: $irsRateText)
                                 .keyboardType(.numberPad)
-                                .keyboardDoneToolbar()
                                 .onChange(of: irsRateText) { _ in saveIRSRate() }
                             Text("IRS rate is shown in cents (70 = $0.70/mi). It determines the mileage deduction when you add new blocks and matches the current IRS standard rate; changes are not retroactive but only affect future entries.")
                                 .font(.caption2)
@@ -208,11 +206,13 @@ struct SettingsView: View {
                     .padding()
                     .padding(.bottom, 32)
                     .frame(width: geo.size.width)
+                    .dismissKeyboardOnTap()
                 }
+                .scrollDismissesKeyboard(.interactively)
                 }
             }
             .navigationTitle("Settings")
-            
+            .keyboardDoneToolbar()
             .sheet(isPresented: $showExpenseCategoryEditor) {
                 if let appSettings = settings.first {
                     ExpenseCategoryEditor(appSettings: appSettings)
@@ -575,7 +575,7 @@ private struct ExpenseCategoryEditor: View {
                 .disabled(newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var descriptorList: some View {
@@ -596,7 +596,7 @@ private struct ExpenseCategoryEditor: View {
         .scrollContentBackground(.hidden)
         .environment(\.editMode, .constant(.active))
         .frame(maxHeight: 320)
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var actionRow: some View {

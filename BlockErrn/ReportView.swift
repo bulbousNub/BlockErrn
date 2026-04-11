@@ -187,7 +187,7 @@ struct ReportView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Date Filter
@@ -235,7 +235,7 @@ struct ReportView: View {
                 .padding(.top, 4)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Status Filter
@@ -264,7 +264,7 @@ struct ReportView: View {
                 }
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Section Toggles
@@ -307,7 +307,7 @@ struct ReportView: View {
                 .toggleStyle(SwitchToggleStyle(tint: .accentColor))
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Generate Button

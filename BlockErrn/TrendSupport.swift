@@ -253,7 +253,7 @@ struct TrendDetailView: View {
             summaryRow(title: "Total profit", value: formatCurrency(stats.totalProfit))
             summaryRow(title: "Profit $/hr", value: formatCurrency(stats.profitPerHour))
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private func summaryRow(title: String, value: String) -> some View {
@@ -289,7 +289,7 @@ struct TrendDetailView: View {
                 }
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private func formatCurrency(_ value: Decimal) -> String {
