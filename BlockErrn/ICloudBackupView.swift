@@ -14,6 +14,9 @@ struct ICloudBackupView: View {
     @State private var remoteBackupDate: Date?
     @State private var backupMessage: String?
     @State private var backupMessageStyle: DataMessageStyle = .info
+    @State private var showDeleteConfirmation = false
+    @State private var deleteMessage: String?
+    @State private var deleteMessageStyle: DataMessageStyle = .info
 
     var body: some View {
         ZStack {
@@ -27,6 +30,9 @@ struct ICloudBackupView: View {
                         backupNowCard
                     }
                     restoreCard
+                    if remoteBackupExists {
+                        deleteBackupCard
+                    }
                 }
                 .padding()
                 .padding(.bottom, 32)
@@ -56,6 +62,12 @@ struct ICloudBackupView: View {
         } message: {
             Text("This will add all blocks and settings from your iCloud backup. Existing data will not be removed, but duplicate blocks may be created if the backup overlaps with current data.")
         }
+        .alert("Delete iCloud Backup?", isPresented: $showDeleteConfirmation) {
+            Button("Delete Permanently", role: .destructive) { performDeleteBackup() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will permanently delete your BlockErrn backup from iCloud. This action cannot be undone. Your local data on this device will not be affected, but you will no longer be able to restore from this backup.")
+        }
     }
 
     // MARK: - Disclaimer
@@ -84,7 +96,7 @@ struct ICloudBackupView: View {
                 disclaimerBullet("You can disable iCloud Backup at any time and your local data is unaffected.")
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private func disclaimerBullet(_ text: String) -> some View {
@@ -123,7 +135,7 @@ struct ICloudBackupView: View {
             .tint(.accentColor)
             .disabled(!iCloudManager.iCloudAvailable)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Status
@@ -159,7 +171,7 @@ struct ICloudBackupView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Backup Now
@@ -199,7 +211,7 @@ struct ICloudBackupView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Restore
@@ -251,7 +263,58 @@ struct ICloudBackupView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
+    }
+
+    // MARK: - Delete Backup
+
+    private var deleteBackupCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Delete iCloud Backup")
+                        .font(.title3)
+                        .bold()
+                    Text("Permanently remove your BlockErrn backup from iCloud. This does not affect any data stored locally on this device.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 36))
+                    .foregroundColor(.red)
+            }
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .foregroundColor(.red)
+                    .font(.caption)
+                    .padding(.top, 3)
+                Text("This action is irreversible. Once deleted, your iCloud backup cannot be recovered. If you need this data in the future, create a new backup first.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Button {
+                showDeleteConfirmation = true
+            } label: {
+                Label("Delete iCloud Backup", systemImage: "trash")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(.red)
+            .disabled(iCloudManager.isUploading || iCloudManager.isDownloading)
+            if let message = deleteMessage {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(deleteMessageStyle.color)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .blockErrnCardStyle()
     }
 
     // MARK: - Helpers
@@ -317,6 +380,22 @@ struct ICloudBackupView: View {
             case .failure(let error):
                 restoreMessage = "Restore failed: \(error.localizedDescription)"
                 restoreMessageStyle = .error
+            }
+        }
+    }
+
+    private func performDeleteBackup() {
+        deleteMessage = nil
+        iCloudManager.deleteBackup { result in
+            switch result {
+            case .success:
+                deleteMessage = "iCloud backup deleted."
+                deleteMessageStyle = .success
+                remoteBackupExists = false
+                remoteBackupDate = nil
+            case .failure(let error):
+                deleteMessage = "Delete failed: \(error.localizedDescription)"
+                deleteMessageStyle = .error
             }
         }
     }

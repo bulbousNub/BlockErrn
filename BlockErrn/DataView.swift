@@ -79,12 +79,12 @@ struct DataView: View {
                     .font(.title2)
                     .foregroundStyle(.secondary)
             }
-            Text("Create branded PDF reports, export to CSV for spreadsheets, back up your data, or restore from a previous backup.")
+            Text("Create PDF reports, export to CSV for spreadsheets, back up your data, or restore from a previous backup.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Report Tile
@@ -96,7 +96,7 @@ struct DataView: View {
                     Text("Earnings Report")
                         .font(.title3)
                         .bold()
-                    Text("Generate a branded PDF report with earnings summaries, block logs, expense breakdowns, and efficiency metrics. Filter by date and status, then preview and share.")
+                    Text("Generate a PDF report with earnings summaries, block logs, expense breakdowns, and efficiency metrics. Filter by date and status, then preview and share.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -132,7 +132,7 @@ struct DataView: View {
                 }
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - CSV Tile
@@ -172,7 +172,7 @@ struct DataView: View {
                         .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 4)
                 )
             }
-            .flexErrnCardStyle()
+            .blockErrnCardStyle()
         }
         .buttonStyle(.plain)
     }
@@ -273,7 +273,7 @@ struct DataView: View {
                 }
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var backupFormatToggle: some View {
@@ -330,7 +330,7 @@ struct DataView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Backup Logic
@@ -470,7 +470,7 @@ struct DataView: View {
     private func defaultBackupFilename() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return "FlexEarningsBackup-\(formatter.string(from: Date())).zip"
+        return "BlockErrnBackup-\(formatter.string(from: Date())).zip"
     }
 
     private func makeBackupPayload() -> BackupPayload {

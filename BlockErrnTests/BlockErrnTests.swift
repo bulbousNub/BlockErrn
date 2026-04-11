@@ -1,6 +1,6 @@
 //
 //  BlockErrnTests.swift
-//  Flex Earnings TrackerTests
+//  BlockErrnTests
 //
 //  Created by TeJay Guilliams on 3/24/26.
 //

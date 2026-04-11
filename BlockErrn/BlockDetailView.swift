@@ -37,7 +37,9 @@ struct BlockDetailView: View {
                 }
                 .padding()
                 .padding(.bottom, 32)
+                .dismissKeyboardOnTap()
             }
+            .scrollDismissesKeyboard(.interactively)
         }
         .navigationTitle("Block Details")
         .keyboardDoneToolbar()
@@ -148,7 +150,7 @@ struct BlockDetailView: View {
             ))
             timestampRow
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var timestampRow: some View {
@@ -223,7 +225,7 @@ struct BlockDetailView: View {
                 Text(formatCurrency(grossPerHour()))
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var scheduleCard: some View {
@@ -235,7 +237,7 @@ struct BlockDetailView: View {
             scheduleRow("User Start Time", block.userStartTime)
             scheduleRow("User Completion Time", block.userCompletionTime)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private func scheduleRow(_ title: String, _ date: Date?) -> some View {
@@ -270,7 +272,7 @@ struct BlockDetailView: View {
                     RouteMapView(routeSegments: segments)
                         .frame(height: 200)
                 }
-                .flexErrnCardStyle()
+                .blockErrnCardStyle()
             }
     }
 
@@ -365,7 +367,7 @@ struct BlockDetailView: View {
                 }
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var deliveryCard: some View {
@@ -389,7 +391,7 @@ struct BlockDetailView: View {
                 )
             )
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var expensesCard: some View {
@@ -491,7 +493,7 @@ struct BlockDetailView: View {
             .toggleStyle(.switch)
         }
         .frame(maxWidth: .infinity)
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var totalsCard: some View {
@@ -507,8 +509,41 @@ struct BlockDetailView: View {
             totalsRow(title: "Mileage deduction", subtitle: nil, value: block.mileageDeduction, active: block.shouldIncludeMileageDeduction)
             totalsRow(title: "Total profit", subtitle: nil, value: block.totalProfit, active: true)
             HStack { Text("Total Profit $/hr"); Spacer(); Text(formatCurrency(profitPerHour())) }
+            profitPerUnitRows
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
+    }
+
+    @ViewBuilder
+    private var profitPerUnitRows: some View {
+        let packages = block.packageCount ?? 0
+        let stops = block.stopCount ?? 0
+
+        if packages > 0 || stops > 0 {
+            if packages > 0 && stops > 0 && packages == stops {
+                // Combined single line when packages and stops are equal
+                HStack {
+                    Text("Profit/package & stop")
+                    Spacer()
+                    Text(formatCurrency(block.totalProfit / Decimal(packages)))
+                }
+            } else {
+                if packages > 0 {
+                    HStack {
+                        Text("Profit/package")
+                        Spacer()
+                        Text(formatCurrency(block.totalProfit / Decimal(packages)))
+                    }
+                }
+                if stops > 0 {
+                    HStack {
+                        Text("Profit/stop")
+                        Spacer()
+                        Text(formatCurrency(block.totalProfit / Decimal(stops)))
+                    }
+                }
+            }
+        }
     }
 
     private func totalsRow(title: String, subtitle: Text?, value: Decimal, active: Bool) -> some View {
@@ -817,7 +852,7 @@ struct AddExpenseSheet: View {
             .pickerStyle(.menu)
             .tint(fieldTint)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var amountCard: some View {
@@ -827,7 +862,7 @@ struct AddExpenseSheet: View {
                 .foregroundStyle(.secondary)
             DecimalField("Amount", prefix: "$", value: $amount)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var noteCard: some View {
@@ -837,7 +872,7 @@ struct AddExpenseSheet: View {
                 .foregroundStyle(.secondary)
             LiquidNotesField(placeholder: "Optional note", text: $note)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var receiptCard: some View {
@@ -890,7 +925,7 @@ struct AddExpenseSheet: View {
             }
         }
         .padding()
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
         .sheet(isPresented: $showProUpgrade) {
             NavigationStack {
                 ProUpgradeView()
@@ -1233,7 +1268,6 @@ struct OptionalIntField: View {
                 }
             ))
             .keyboardType(.numberPad)
-            .keyboardDoneToolbar()
             .multilineTextAlignment(.trailing)
             .frame(width: 80)
             .onAppear {
@@ -1339,7 +1373,7 @@ private struct ExpenseDetailView: View {
             timestampRow
         }
         .padding()
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var heroFields: some View {

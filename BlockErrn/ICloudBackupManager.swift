@@ -173,6 +173,41 @@ final class ICloudBackupManager: ObservableObject {
         }
     }
 
+    // MARK: - Delete
+
+    func deleteBackup(completion: @escaping (Result<Void, Error>) -> Void) {
+        guard !isUploading, !isDownloading else {
+            completion(.failure(ICloudBackupError.alreadyInProgress))
+            return
+        }
+
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self,
+                  let fileURL = self.backupFileURL() else {
+                DispatchQueue.main.async {
+                    completion(.failure(ICloudBackupError.containerUnavailable))
+                }
+                return
+            }
+            let fm = FileManager.default
+            do {
+                if fm.fileExists(atPath: fileURL.path) {
+                    try fm.removeItem(at: fileURL)
+                }
+                DispatchQueue.main.async {
+                    self.lastBackupDate = nil
+                    UserDefaults.standard.removeObject(forKey: Self.lastICloudBackupKey)
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.lastError = error.localizedDescription
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
     // MARK: - Persistence
 
     private func loadLastBackupDate() {

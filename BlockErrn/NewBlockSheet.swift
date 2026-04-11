@@ -54,7 +54,9 @@ struct NewBlockSheet: View {
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 32)
+                    .dismissKeyboardOnTap()
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle("New Block")
             .keyboardDoneToolbar()
@@ -195,7 +197,7 @@ struct NewBlockSheet: View {
             LiquidNotesField(placeholder: "Notes", text: $notes)
                 .focused($focusedField, equals: .notes)
             }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var payoutCard: some View {
@@ -231,7 +233,7 @@ struct NewBlockSheet: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var scheduleCard: some View {
@@ -247,7 +249,7 @@ struct NewBlockSheet: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var mileageCard: some View {
@@ -267,7 +269,7 @@ struct NewBlockSheet: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var expensesCard: some View {
@@ -300,7 +302,7 @@ struct NewBlockSheet: View {
                 }
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var grossTotal: Decimal {
@@ -416,7 +418,7 @@ private struct ManualExpenseSheet: View {
             .pickerStyle(.menu)
             .tint(fieldTint)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var amountCard: some View {
@@ -426,7 +428,7 @@ private struct ManualExpenseSheet: View {
                 .foregroundStyle(.secondary)
             DecimalField("Amount", prefix: "$", value: $amount)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var noteCard: some View {
@@ -436,7 +438,7 @@ private struct ManualExpenseSheet: View {
                 .foregroundStyle(.secondary)
             LiquidNotesField(placeholder: "Optional note", text: $note)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var actionRow: some View {

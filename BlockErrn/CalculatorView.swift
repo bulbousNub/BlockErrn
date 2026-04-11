@@ -273,12 +273,15 @@ struct CalculatorView: View {
             }
             .padding(.horizontal)
             .padding(.bottom, 32)
+            .dismissKeyboardOnTap()
         }
                 .refreshable {
                     startTimer()
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle("BlockErrn")
+            .keyboardDoneToolbar()
             .onAppear {
                 startTimer()
                 preEndReminderEnabled = settings.first?.includePreReminder ?? true
@@ -376,8 +379,8 @@ struct CalculatorView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 6) {
-                Label("**Active block** appears here when you start one — track mileage and expenses in real time.", systemImage: "bolt.fill")
-                Label("**Upcoming blocks** show below when a block is accepted but hasn't started yet.", systemImage: "calendar")
+                Label("**Active blocks** appear here within 45 minutes of start time — track mileage and expenses in real time.", systemImage: "bolt.fill")
+                Label("**Upcoming blocks** show below when a block is accepted and scheduled to start within the next 3 days.", systemImage: "calendar")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -391,7 +394,7 @@ struct CalculatorView: View {
                 .controlSize(.small)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private func acknowledgePlanCard() {
@@ -417,7 +420,6 @@ struct CalculatorView: View {
                     .font(.title3)
                     .bold()
                     .multilineTextAlignment(.leading)
-                    .keyboardDoneToolbar()
             }
             .padding(.vertical, 8)
             Divider()
@@ -536,7 +538,7 @@ struct CalculatorView: View {
             .controlSize(.large)
             .buttonBorderShape(.capsule)
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     private var reminderToggleGrid: some View {
@@ -609,7 +611,7 @@ struct CalculatorView: View {
                 .buttonStyle(.plain)
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     @ViewBuilder
@@ -799,7 +801,6 @@ struct CalculatorView: View {
                     }
                     Spacer()
                 }
-                .keyboardDoneToolbar()
                 HStack(spacing: 12) {
                     Button("Add Expense") {
                         onAddExpense()
@@ -822,7 +823,7 @@ struct CalculatorView: View {
                     .tint(.accentColor)
                 }
             }
-            .flexErrnCardStyle()
+            .blockErrnCardStyle()
         }
     }
 

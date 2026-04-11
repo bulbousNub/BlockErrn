@@ -82,7 +82,7 @@ struct TrendView: View {
                                 ProLockedBanner(feature: "Full Trend History") {
                                     showProUpgrade = true
                                 }
-                                .flexErrnCardStyle()
+                                .blockErrnCardStyle()
                             }
                         }
                         .padding()
@@ -176,7 +176,7 @@ struct TrendView: View {
                 }
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Reworked Weekly Earnings (gross + profit overlay)
@@ -708,7 +708,7 @@ struct TrendView: View {
                 }
             }
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 
     // MARK: - Data Helpers
@@ -836,12 +836,12 @@ struct TrendView: View {
                 ForEach(stats.prefix(limit)) { stat in
                     NavigationLink(destination: TrendDetailView(stats: stat, frequency: frequency)) {
                         TrendSummaryRow(stats: stat, frequency: frequency)
-                            .flexErrnCardStyle()
+                            .blockErrnCardStyle()
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .flexErrnCardStyle()
+            .blockErrnCardStyle()
         }
     }
 
@@ -875,7 +875,7 @@ struct TrendView: View {
                         ForEach(stats) { stat in
                             NavigationLink(destination: TrendDetailView(stats: stat, frequency: frequency)) {
                                 TrendSummaryRow(stats: stat, frequency: frequency)
-                                    .flexErrnCardStyle()
+                                    .blockErrnCardStyle()
                             }
                             .buttonStyle(.plain)
                         }
@@ -961,7 +961,7 @@ private struct TrendSectionCard<Content: View>: View {
                 .bold()
             content
         }
-        .flexErrnCardStyle()
+        .blockErrnCardStyle()
     }
 }
 
