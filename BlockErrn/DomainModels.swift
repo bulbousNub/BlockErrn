@@ -1,0 +1,597 @@
+import SwiftUI
+import Foundation
+import SwiftData
+import CoreLocation
+
+public enum ExpenseCategory: String, Codable, CaseIterable, Identifiable, Hashable {
+    case drinks
+    case gas
+    case snacks
+    case parkingTolls
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .drinks: return "Drinks"
+        case .gas: return "Gas"
+        case .snacks: return "Snacks"
+        case .parkingTolls: return "Parking/Tolls"
+        }
+    }
+
+    public var excludedFromTotals: Bool {
+        switch self {
+        case .gas: return true
+        default: return false
+        }
+    }
+}
+
+public struct ExpenseCategoryDescriptor: Codable, Identifiable, Hashable {
+    public let id: String
+    public var name: String
+
+    public static var defaultList: [ExpenseCategoryDescriptor] {
+        ExpenseCategory.allCases.map { descriptor(for: $0) }
+    }
+
+    public static func descriptor(for category: ExpenseCategory) -> ExpenseCategoryDescriptor {
+        ExpenseCategoryDescriptor(id: category.rawValue, name: category.displayName)
+    }
+
+    public static func custom(name: String) -> ExpenseCategoryDescriptor {
+        ExpenseCategoryDescriptor(id: "custom.\(UUID().uuidString)", name: name)
+    }
+}
+
+public enum AuditAction: String, Codable, CaseIterable {
+    case created
+    case updated
+    case deleted
+    case statusChanged
+    case tipsUpdated
+    case expenseAdded
+    case expenseRemoved
+    case milesUpdated
+
+    public var displayName: String {
+        switch self {
+        case .created: return "Created"
+        case .updated: return "Updated"
+        case .deleted: return "Deleted"
+        case .statusChanged: return "Status Changed"
+        case .tipsUpdated: return "Tips Updated"
+        case .expenseAdded: return "Expense Added"
+        case .expenseRemoved: return "Expense Removed"
+        case .milesUpdated: return "Miles Updated"
+        }
+    }
+}
+
+let auditTimestampFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter
+}()
+
+func auditDateString(_ date: Date?) -> String? {
+    guard let date else { return nil }
+    return auditTimestampFormatter.string(from: date)
+}
+
+public func currencyString(_ value: Decimal) -> String {
+    let formatter = NumberFormatter()
+    formatter.numberStyle = .currency
+    formatter.currencyCode = "USD"
+    formatter.maximumFractionDigits = 2
+    formatter.minimumFractionDigits = 2
+    return formatter.string(from: value as NSDecimalNumber) ?? "$0.00"
+}
+
+public func logBlockCreationFields(
+    for block: Block,
+    note: String,
+    currencyFormatter: (Decimal) -> String
+) {
+    let totalMinutes = max(1, block.durationMinutes)
+    let hours = Decimal(totalMinutes) / 60
+    let grossPerHour: Decimal = hours > 0 ? block.grossPayout / hours : block.grossPayout
+
+    let entries: [(field: String, value: String?)] = [
+        ("date", auditDateString(block.date)),
+        ("durationMinutes", "\(block.durationMinutes)"),
+        ("status", block.status.displayName),
+        ("notes", block.notes),
+        ("grossBase", currencyFormatter(block.grossBase)),
+        ("hasTips", block.hasTips ? "true" : "false"),
+        ("tipsAmount", block.tipsAmount.map(currencyFormatter)),
+        ("grossPayout", currencyFormatter(block.grossPayout)),
+        ("grossPerHour", currencyFormatter(grossPerHour)),
+        ("startTime", auditDateString(block.startTime)),
+        ("endTime", auditDateString(block.endTime)),
+        ("miles", auditDecimalString(block.miles)),
+        ("irsRateSnapshot", currencyFormatter(block.irsRateSnapshot)),
+        ("mileageDeduction", currencyFormatter(block.mileageDeduction))
+    ]
+
+        for entry in entries {
+            guard let newValue = entry.value else { continue }
+            block.recordAuditEntry(action: .updated, field: entry.field, oldValue: nil, newValue: newValue, note: note)
+        }
+}
+
+public func auditDecimalString(_ value: Decimal) -> String {
+    (value as NSDecimalNumber).stringValue
+}
+
+public struct RoutePoint: Codable, Hashable {
+    public let latitude: Double
+    public let longitude: Double
+    public let timestamp: Date
+
+    public init(latitude: Double, longitude: Double, timestamp: Date = Date()) {
+        self.latitude = latitude
+        self.longitude = longitude
+        self.timestamp = timestamp
+    }
+
+    public init(location: CLLocation) {
+        self.latitude = location.coordinate.latitude
+        self.longitude = location.coordinate.longitude
+        self.timestamp = location.timestamp
+    }
+
+    public var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
+public struct RouteSegment: Codable, Hashable {
+    public let points: [RoutePoint]
+
+    public init(points: [RoutePoint]) {
+        self.points = points
+    }
+}
+
+public enum BlockStatus: String, Codable, CaseIterable, Identifiable {
+    case accepted
+    case completed
+    case cancelled
+    case noShow
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .accepted: return "Accepted"
+        case .completed: return "Completed"
+        case .cancelled: return "Cancelled"
+        case .noShow: return "No-Show"
+        }
+    }
+}
+
+@Model
+public final class Expense {
+    @Attribute(.unique) public var id: UUID
+    public var categoryRaw: String
+    public var amount: Decimal
+    public var note: String?
+    public var createdAt: Date
+    public var updatedAt: Date?
+    public var receiptFileName: String?
+    public var block: Block?
+
+    public init(id: UUID = UUID(), category: ExpenseCategory, amount: Decimal, note: String? = nil, createdAt: Date = Date(), updatedAt: Date? = nil, receiptFileName: String? = nil) {
+        self.id = id
+        self.categoryRaw = category.rawValue
+        self.amount = amount
+        self.note = note
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.receiptFileName = receiptFileName
+    }
+
+    public init(id: UUID = UUID(), categoryRaw: String, amount: Decimal, note: String? = nil, createdAt: Date = Date(), updatedAt: Date? = nil, receiptFileName: String? = nil) {
+        self.id = id
+        self.categoryRaw = categoryRaw
+        self.amount = amount
+        self.note = note
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.receiptFileName = receiptFileName
+    }
+
+    public var category: ExpenseCategory {
+        get { ExpenseCategory(rawValue: categoryRaw) ?? .drinks }
+        set { categoryRaw = newValue.rawValue }
+    }
+}
+
+@Model
+public final class AuditEntry {
+    @Attribute(.unique) public var id: UUID
+    public var timestamp: Date
+    public var actionRaw: String
+    public var field: String?
+    public var oldValue: String?
+    public var newValue: String?
+    public var note: String?
+    public var block: Block?
+
+    public init(id: UUID = UUID(), timestamp: Date = Date(), action: AuditAction, field: String? = nil, oldValue: String? = nil, newValue: String? = nil, note: String? = nil) {
+        self.id = id
+        self.timestamp = timestamp
+        self.actionRaw = action.rawValue
+        self.field = field
+        self.oldValue = oldValue
+        self.newValue = newValue
+        self.note = note
+    }
+
+    public var action: AuditAction {
+        get { AuditAction(rawValue: actionRaw) ?? .updated }
+        set { actionRaw = newValue.rawValue }
+    }
+}
+
+@Model
+public final class Block {
+    @Attribute(.unique) public var id: UUID
+
+    public var date: Date
+    public var durationMinutes: Int
+
+    public var grossBase: Decimal
+    public var hasTips: Bool
+    public var tipsAmount: Decimal?
+
+    public var miles: Decimal
+    public var irsRateSnapshot: Decimal
+    public var startTime: Date?
+    public var endTime: Date?
+    public var routePointsData: Data?
+    public var userStartTime: Date?
+    public var userCompletionTime: Date?
+
+    public var packageCount: Int?
+    public var stopCount: Int?
+
+    public var statusRaw: String
+
+    @Relationship(deleteRule: .cascade, inverse: \Expense.block) public var expenses: [Expense]
+    @Relationship(deleteRule: .cascade, inverse: \AuditEntry.block) public var auditEntries: [AuditEntry]
+
+    public var notes: String?
+
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        date: Date = Date(),
+        durationMinutes: Int,
+        grossBase: Decimal,
+        hasTips: Bool = false,
+        tipsAmount: Decimal? = nil,
+        miles: Decimal = 0,
+        irsRateSnapshot: Decimal,
+        status: BlockStatus = .accepted,
+        expenses: [Expense] = [],
+        auditEntries: [AuditEntry] = [],
+        notes: String? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        startTime: Date? = nil,
+        endTime: Date? = nil,
+        routePointsData: Data? = nil,
+        userStartTime: Date? = nil,
+        userCompletionTime: Date? = nil,
+        packageCount: Int? = nil,
+        stopCount: Int? = nil
+    ) {
+        self.id = id
+        self.date = date
+        self.durationMinutes = durationMinutes
+        self.grossBase = grossBase
+        self.hasTips = hasTips
+        self.tipsAmount = tipsAmount
+        self.miles = miles
+        self.irsRateSnapshot = irsRateSnapshot
+        self.statusRaw = status.rawValue
+        self.expenses = expenses
+        self.auditEntries = auditEntries
+        self.notes = notes
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.startTime = startTime
+        self.endTime = endTime
+        self.routePointsData = routePointsData
+        self.userStartTime = userStartTime
+        self.userCompletionTime = userCompletionTime
+        self.packageCount = packageCount
+        self.stopCount = stopCount
+    }
+
+    public var status: BlockStatus {
+        get { BlockStatus(rawValue: statusRaw) ?? .accepted }
+        set { statusRaw = newValue.rawValue }
+    }
+
+    public var routePoints: [RoutePoint]? {
+        get {
+            routeSegments?.flatMap { $0 }
+        }
+        set {
+            guard let points = newValue, !points.isEmpty else {
+                routeSegments = nil
+                return
+            }
+            routeSegments = [points]
+        }
+    }
+
+    public var routeSegments: [[RoutePoint]]? {
+        get {
+            guard let data = routePointsData else { return nil }
+
+            if let segments = try? Self.segmentDecoder.decode([RouteSegment].self, from: data),
+               !segments.isEmpty {
+                let cleaned = segments
+                    .map(\.points)
+                    .filter { !$0.isEmpty }
+                return cleaned.isEmpty ? nil : cleaned
+            }
+
+            if let decoded = try? Self.routeDecoder.decode([RoutePoint].self, from: data),
+               !decoded.isEmpty {
+                return [decoded]
+            }
+
+            return nil
+        }
+        set {
+            let filtered = newValue?.filter { !$0.isEmpty } ?? []
+            guard !filtered.isEmpty else {
+                routePointsData = nil
+                return
+            }
+
+            let wrapped = filtered.map { RouteSegment(points: $0) }
+            routePointsData = try? Self.segmentEncoder.encode(wrapped)
+        }
+    }
+
+    public func appendRouteSegment(_ newPoints: [RoutePoint]) {
+        guard !newPoints.isEmpty else { return }
+        var pieces = routeSegments ?? []
+        pieces.append(newPoints)
+        routeSegments = pieces
+    }
+
+    private static let routeEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    private static let routeDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
+    private static let segmentEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    private static let segmentDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+}
+
+public extension Block {
+    var hoursDecimal: Decimal { Decimal(durationMinutes) / 60 }
+    var grossPayout: Decimal { grossBase + (tipsAmount ?? 0) }
+    var mileageDeduction: Decimal { roundedMiles * irsRateSnapshot }
+    var additionalExpensesTotal: Decimal {
+        expenses.reduce(0 as Decimal) { partial, e in
+            guard !DeductionPreferenceStore.shared.isExpenseExcluded(e.id),
+                  ExpenseCategory(rawValue: e.categoryRaw)?.excludedFromTotals != true else {
+                return partial
+            }
+            return partial + e.amount
+        }
+    }
+    var effectiveMileageDeduction: Decimal { shouldIncludeMileageDeduction ? mileageDeduction : 0 }
+    var effectiveExpensesDeduction: Decimal { shouldIncludeExpensesDeduction ? additionalExpensesTotal : 0 }
+    var totalProfit: Decimal { grossPayout - effectiveMileageDeduction - effectiveExpensesDeduction }
+    var roundedMiles: Decimal {
+        var mutable = miles
+        var rounded = Decimal()
+        NSDecimalRound(&rounded, &mutable, 0, .plain)
+        return rounded
+    }
+    var roundedMilesDisplay: String {
+        let value = NSDecimalNumber(decimal: roundedMiles).intValue
+        return "\(value) mi"
+    }
+    var scheduledStartDate: Date { startTime ?? date }
+    var scheduledEndDate: Date {
+        let effectiveStart = scheduledStartDate
+        if let explicitEnd = endTime {
+            return Self.normalizedEndDate(explicitEnd, relativeTo: effectiveStart)
+        }
+        let effectiveMinutes = max(1, durationMinutes)
+        return effectiveStart.addingTimeInterval(TimeInterval(effectiveMinutes * 60))
+    }
+
+    var isEligibleForMakeActive: Bool {
+        guard status == .accepted else { return false }
+        let now = Date()
+        let start = scheduledStartDate
+        if start > now { return true }
+        let window = now.addingTimeInterval(-24 * 60 * 60)
+        return scheduledEndDate >= window
+    }
+
+    var shouldExcludeMileageDeduction: Bool {
+        DeductionPreferenceStore.shared.shouldExclude(type: .mileage, blockID: id)
+    }
+
+    var shouldIncludeMileageDeduction: Bool {
+        !shouldExcludeMileageDeduction
+    }
+
+    var shouldExcludeExpensesDeduction: Bool {
+        DeductionPreferenceStore.shared.shouldExclude(type: .expenses, blockID: id)
+    }
+
+    var shouldIncludeExpensesDeduction: Bool {
+        !shouldExcludeExpensesDeduction
+    }
+
+    var hasIndividuallyExcludedExpenses: Bool {
+        expenses.contains { DeductionPreferenceStore.shared.isExpenseExcluded($0.id) }
+    }
+
+    func recordAuditEntry(
+        action: AuditAction,
+        field: String? = nil,
+        oldValue: String? = nil,
+        newValue: String? = nil,
+        note: String? = nil
+    ) {
+        let entry = AuditEntry(action: action, field: field, oldValue: oldValue, newValue: newValue, note: note)
+        auditEntries.append(entry)
+    }
+}
+
+fileprivate extension Block {
+    static func normalizedEndDate(_ explicitEnd: Date, relativeTo start: Date) -> Date {
+        var candidate = explicitEnd
+        let calendar = Calendar.current
+        while candidate <= start {
+            candidate = calendar.date(byAdding: .day, value: 1, to: candidate)
+                ?? candidate.addingTimeInterval(24 * 60 * 60)
+        }
+        return candidate
+    }
+}
+
+public enum AppearancePreference: String, Codable, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    public var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
+@Model
+public final class AppSettings {
+    @Attribute(.unique) public var id: UUID
+    public var irsMileageRate: Decimal
+    public var currencyCode: String
+    public var roundingScale: Int
+    public var preferredAppearanceRaw: String?
+    public var includePreReminder: Bool = true
+    public var hasDismissedPlanCard: Bool = false
+    public var hasCompletedOnboarding: Bool
+    public var reminderBeforeStartMinutes: Int = 45
+    public var reminderBeforeEndMinutes: Int = 15
+    public var tipReminderHours: Int = 24
+
+    private static let defaultExpenseCategoryDescriptors = ExpenseCategoryDescriptor.defaultList
+    private static let defaultExpenseCategoryJSON: String = {
+        let encoder = JSONEncoder()
+        let data = try? encoder.encode(defaultExpenseCategoryDescriptors)
+        return String(data: data ?? Data(), encoding: .utf8) ?? "[]"
+    }()
+
+    private var expenseCategoriesJSON: String = defaultExpenseCategoryJSON
+
+    public var expenseCategoryDescriptors: [ExpenseCategoryDescriptor] {
+        get {
+            Self.decodeExpenseCategoryDescriptors(from: expenseCategoriesJSON)
+        }
+        set {
+            expenseCategoriesJSON = Self.encodeExpenseCategoryDescriptors(newValue)
+        }
+    }
+
+    public init(
+        id: UUID = UUID(),
+        irsMileageRate: Decimal = 0.70,
+        currencyCode: String = "USD",
+        roundingScale: Int = 2,
+        preferredAppearance: AppearancePreference = .system,
+        includePreReminder: Bool = true,
+        hasDismissedPlanCard: Bool = false,
+        expenseCategories: [ExpenseCategoryDescriptor]? = nil,
+        hasCompletedOnboarding: Bool = false,
+        reminderBeforeStartMinutes: Int = 45,
+        reminderBeforeEndMinutes: Int = 15,
+        tipReminderHours: Int = 24
+    ) {
+        self.id = id
+        self.irsMileageRate = irsMileageRate
+        self.currencyCode = currencyCode
+        self.roundingScale = roundingScale
+        self.preferredAppearanceRaw = preferredAppearance.rawValue
+        self.includePreReminder = includePreReminder
+        self.hasDismissedPlanCard = hasDismissedPlanCard
+        let categoriesToUse = expenseCategories ?? Self.defaultExpenseCategoryDescriptors
+        self.expenseCategoriesJSON = Self.encodeExpenseCategoryDescriptors(categoriesToUse)
+        self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.reminderBeforeStartMinutes = reminderBeforeStartMinutes
+        self.reminderBeforeEndMinutes = reminderBeforeEndMinutes
+        self.tipReminderHours = tipReminderHours
+    }
+
+    public var preferredAppearance: AppearancePreference {
+        get { AppearancePreference(rawValue: preferredAppearanceRaw ?? AppearancePreference.system.rawValue) ?? .system }
+        set { preferredAppearanceRaw = newValue.rawValue }
+    }
+
+    private static func decodeExpenseCategoryDescriptors(from json: String) -> [ExpenseCategoryDescriptor] {
+        let decoder = JSONDecoder()
+        if let data = json.data(using: .utf8),
+           let decoded = try? decoder.decode([ExpenseCategoryDescriptor].self, from: data),
+           !decoded.isEmpty {
+            return decoded
+        }
+        return Self.defaultExpenseCategoryDescriptors
+    }
+
+    private static func encodeExpenseCategoryDescriptors(_ descriptors: [ExpenseCategoryDescriptor]) -> String {
+        let encoder = JSONEncoder()
+        if let data = try? encoder.encode(descriptors),
+           let string = String(data: data, encoding: .utf8) {
+            return string
+        }
+        return Self.defaultExpenseCategoryJSON
+    }
+}
