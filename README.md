@@ -9,16 +9,19 @@ BlockErrn is a SwiftUI + SwiftData earnings tracker built for gig delivery drive
 - **Block management** — Create, schedule, and track blocks with start/end times, base pay, tips, mileage deduction, and net profit. Blocks open to a detail view with expenses, audit history, and glassy summary cards.
 - **Live GPS mileage tracking** — Background location tracking records route points while you drive. Mileage is converted to an IRS standard deduction automatically using whole-mile rounding.
 - **Expense tracking** — Log expenses per block with categories, amounts, notes, timestamps, and optional profit exclusion. Categories are fully customizable in Settings.
-- **Receipt capture** — Scan receipts using VisionKit's document scanner (or camera fallback). Images are compressed and stored locally with inline thumbnails and full-screen inspection.
-- **Trends & analytics** — Weekly and monthly earnings charts, live metric cards for current period gross/mileage, interactive chart overlays, and drill-down views for historical data.
+- **Receipt capture**\* — Scan receipts using VisionKit's document scanner (or camera fallback). Images are compressed and stored locally with inline thumbnails and full-screen inspection.
+- **Trends & analytics**\* — Weekly and monthly earnings charts, live metric cards for current period gross/mileage, interactive chart overlays, and drill-down views for historical data. Current-week trends are available in the free tier; full trend history requires Pro.
 - **Live Activities** — Lock Screen and Dynamic Island widget showing real-time mileage, scheduled block times, and tracking status. Updates every 5 seconds during active blocks.
 - **Notifications** — Configurable reminders before block start, before block end, at block end, and a tip reminder (default 24 hours post-block). Non-tip reminders are automatically cancelled when a block is marked complete.
 - **Backup & restore** — Export all blocks, expenses, audits, settings, and receipt images as a ZIP archive. Import from ZIP or legacy JSON. Receipts are restored atomically alongside structured data.
-- **iCloud backup** — Automatic cloud backup of all data with download/restore capability. Auto-backup on app background when enabled. Includes option to permanently delete your iCloud backup.
-- **CSV export** — Configurable column selection for spreadsheet exports. Includes ISO timestamps, decimals, and JSON-wrapped arrays for nested data like expenses and audit entries.
+- **iCloud backup**\* — Automatic cloud backup of all data with download/restore capability. Auto-backup on app background when enabled. Includes option to permanently delete your iCloud backup.
+- **CSV export**\* — Configurable column selection for spreadsheet exports. Includes ISO timestamps, decimals, and JSON-wrapped arrays for nested data like expenses and audit entries. Basic CSV export is available in the free tier; column configuration requires Pro.
+- **PDF reports**\* — Generate detailed earnings reports as shareable PDFs with configurable sections including summary, earnings breakdown, block log, expense log, and mileage data.
 - **Appearance** — System, light, and dark themes. Gradient backgrounds, ultra-thin materials, and capsule buttons throughout.
 - **Contact** — In-app contact options for general inquiries, support requests, and bug reports. Bug reports link to GitHub Issues with an email fallback.
 - **Privacy policy** — Full privacy policy viewable in-app under Settings > About.
+
+> \* *Requires BlockErrn Pro. Available as a monthly subscription, yearly subscription, or one-time lifetime purchase. All subscription plans include a 1-week free trial.*
 
 ### Apple Watch
 
