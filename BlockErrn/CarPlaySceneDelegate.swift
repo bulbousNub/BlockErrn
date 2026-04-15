@@ -214,7 +214,16 @@ public class CarPlaySceneDelegate: NSObject, CPTemplateApplicationSceneDelegate,
     private func makeListSection(for blocks: [Block], title: String, isActive: Bool) -> CPListSection {
         let items: [CPListItem]
         if blocks.isEmpty {
-            let empty = CPListItem(text: "No \(title.lowercased()) blocks", detailText: "Connect to your phone to add more")
+            let emptyText: String
+            let emptyDetail: String
+            if isActive {
+                emptyText = "No active blocks"
+                emptyDetail = "Blocks appear here within 45 min of start time"
+            } else {
+                emptyText = "No upcoming blocks"
+                emptyDetail = "Accept a block in BlockErrn to see it here"
+            }
+            let empty = CPListItem(text: emptyText, detailText: emptyDetail)
             items = [empty]
         } else {
             items = blocks.map { block in
